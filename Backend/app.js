@@ -11,7 +11,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const operationsRoutes = require("./routes/operationsRoutes");
 const creditRoutes = require("./routes/creditRoutes");
 const userRoutes = require("./routes/userRoutes");
-
+const loanRoutes = require("./routes/loanRoutes");
 const plPartnerRoutes = require("./modules/Partners/routes/plPartnerRoutes");
 
 const {
@@ -109,6 +109,11 @@ app.use(
 app.use(
   "/api/partner/v1",
   plPartnerRoutes,
+);
+
+app.use(
+  "/api/loans",
+  loanRoutes
 );
 
 

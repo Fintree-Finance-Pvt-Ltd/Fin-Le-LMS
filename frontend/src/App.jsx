@@ -4,6 +4,8 @@ import {
   Routes,
 } from "react-router";
 
+import AllLoans from "./pages/AllLoans";
+
 import RequireAuth from "./components/auth/RequireAuth";
 import RequirePermission from "./components/auth/RequirePermission";
 import RoleRedirect from "./components/auth/RoleRedirect";
@@ -45,7 +47,7 @@ function App() {
         element={<Unauthorized />}
       />
 
-      {/* Authenticated dashboard layout */}
+      {/* Authenticated LMS routes */}
       <Route
         element={
           <RequireAuth>
@@ -53,6 +55,12 @@ function App() {
           </RequireAuth>
         }
       >
+        {/* Common route - available to every logged-in user */}
+        <Route
+          path="all-loans"
+          element={<AllLoans />}
+        />
+
         {/* Admin */}
         <Route
           path="admin/dashboard"

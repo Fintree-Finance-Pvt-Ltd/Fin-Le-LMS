@@ -1,69 +1,64 @@
 import {
+  LogOut,
   Menu,
-  ShieldCheck,
+  UserRound,
 } from "lucide-react";
 
-import { useAuth } from "../../context/AuthContext";
-
 function Topbar({
+  user,
   onMenuClick,
+  onLogout,
 }) {
-  const { user } = useAuth();
-
-  const initials =
-    user?.name
-      ?.split(" ")
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "U";
-
   return (
-    <header className="sticky top-0 z-30 h-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div className="flex h-full items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onMenuClick}
-            className="rounded-xl border border-slate-200 p-2.5 text-slate-600 hover:bg-slate-50 lg:hidden"
-          >
-            <Menu size={21} />
-          </button>
+    <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950 shadow-sm">
+      <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* MOBILE MENU */}
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-200 transition hover:bg-slate-900 hover:text-white lg:hidden"
+          aria-label="Open menu"
+        >
+          <Menu size={21} />
+        </button>
 
-          <div>
-            <h2 className="font-bold text-slate-900">
-              Personal Loan LMS
-            </h2>
+        {/* DESKTOP LEFT SPACE */}
+        <div className="hidden lg:block" />
 
-            <p className="hidden text-xs text-slate-500 sm:block">
-              Loan Management Workspace
-            </p>
-          </div>
-        </div>
+        {/* USER + LOGOUT */}
+        <div className="ml-auto flex items-center">
+          <div className="flex items-center rounded-xl border border-slate-800 bg-slate-900/70 px-2 py-1.5 sm:px-3">
+            {/* STATUS + NAME */}
+            <div className="hidden min-w-0 text-right sm:block">
+              <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-emerald-400">
+                System Active
+              </p>
 
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className="hidden items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 md:flex">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <p className="mt-0.5 max-w-[130px] truncate text-xs font-semibold text-white">
+                {user?.name || "User"}
+              </p>
+            </div>
 
-            <span className="text-xs font-semibold text-emerald-700">
-              System Active
-            </span>
-          </div>
+            {/* USER ICON */}
+            <div className="sm:ml-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-sm">
+              <UserRound size={17} />
+            </div>
 
-          <div className="hidden text-right sm:block">
-            <p className="max-w-40 truncate text-sm font-semibold text-slate-900">
-              {user?.name}
-            </p>
+            {/* SEPARATOR */}
+            <div className="mx-2 hidden h-7 w-px bg-slate-700 sm:block" />
 
-            <p className="flex items-center justify-end gap-1 text-xs capitalize text-slate-500">
-              <ShieldCheck size={12} />
+            {/* LOGOUT */}
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex h-9 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white sm:px-3"
+            >
+              <LogOut size={15} />
 
-              {user?.role_name || user?.role}
-            </p>
-          </div>
-
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white">
-            {initials}
+              <span className="hidden xs:inline sm:inline">
+                Logout
+              </span>
+            </button>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import {
   ArrowRight,
@@ -80,6 +80,29 @@ function Home() {
     fetchCurrentUser();
   }, [navigate]);
 
+  useEffect(() => {
+  if (
+    !loading &&
+    user &&
+    location.state?.showWelcome
+  ) {
+    setShowWelcomeToast(true);
+
+    // Remove the state so refreshing doesn't
+    // display the toast again.
+    window.history.replaceState(
+      {},
+      document.title
+    );
+
+    const timer = setTimeout(() => {
+      setShowWelcomeToast(false);
+    }, 3500);
+
+    return () => clearTimeout(timer);
+  }
+}, [loading, user, location.state]);
+
   const handleLogout = async () => {
     try {
       await apiFetch("/logout", {
@@ -127,6 +150,37 @@ function Home() {
           }
           onLogout={handleLogout}
         />
+
+        {showWelcomeToast && (
+  <div className="fixed right-3 top-20 z-[100] w-[calc(100%-24px)] max-w-sm sm:right-6 sm:w-auto sm:min-w-[320px]">
+    <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-white px-4 py-3 shadow-xl shadow-slate-300/30">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+        <ShieldCheck size={20} />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
+          Login Successful
+        </p>
+
+        <p className="mt-0.5 truncate text-sm font-bold text-slate-900">
+          Welcome, {user?.name || "User"}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() =>
+          setShowWelcomeToast(false)
+        }
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+        aria-label="Close notification"
+      >
+        ×
+      </button>
+    </div>
+  </div>
+)}
 
         <main className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           <div className="mx-auto max-w-7xl">

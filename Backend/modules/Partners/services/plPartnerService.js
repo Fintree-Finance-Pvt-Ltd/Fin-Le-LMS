@@ -3023,6 +3023,319 @@ async function recordRepayment(
 
 /*
 |--------------------------------------------------------------------------
+| GET ALL PERSONAL LOANS
+|--------------------------------------------------------------------------
+*/
+
+async function getAllPersonalLoans({
+  page = 1,
+  pageSize = 25,
+  search = "",
+  sortBy = "created_at",
+  sortDir = "desc",
+} = {}) {
+
+  /*
+  |--------------------------------------------------------------------------
+  | PAGINATION
+  |--------------------------------------------------------------------------
+  */
+
+  page = Number.parseInt(page, 10);
+  pageSize = Number.parseInt(pageSize, 10);
+
+  if (!Number.isInteger(page) || page < 1) {
+    page = 1;
+  }
+
+  if (!Number.isInteger(pageSize) || pageSize < 1) {
+    pageSize = 25;
+  }
+
+  pageSize = Math.min(pageSize, 100);
+
+  const offset =
+    (page - 1) * pageSize;
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | SAFE SORTING
+  |--------------------------------------------------------------------------
+  */
+
+  const SORT_COLUMNS = {
+    created_at: "pa.created_at",
+    updated_at: "pa.updated_at",
+    customer_name: "pa.customer_full_name",
+    lan: "pa.lan",
+    partner_loan_id: "pa.partner_application_id",
+    loan_amount: "pa.requested_amount",
+    disbursal_amount: "pa.bre_approved_loan_amount",
+    disbursement_date: "d.Disbursement_Date",
+    status: "pa.status",
+    bre_status: "pa.bre_status",
+  };
+
+  const sortColumn =
+    SORT_COLUMNS[sortBy] ||
+    SORT_COLUMNS.created_at;
+
+  const direction =
+    String(sortDir).toLowerCase() === "asc"
+      ? "ASC"
+      : "DESC";
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | FILTERS
+  |--------------------------------------------------------------------------
+  */
+
+  let whereSql = `
+    WHERE pa.product_code = ?
+  `;
+
+  const filterParams = [
+    "PERSONAL_LOAN",
+  ];
+
+  const cleanSearch =
+    String(search || "").trim();
+
+  if (cleanSearch) {
+    const likeSearch =
+      `%${cleanSearch}%`;
+
+    whereSql += `
+      AND (
+        pa.lan LIKE ?
+        OR pa.partner_application_id LIKE ?
+        OR pa.partner_application_number LIKE ?
+        OR pa.customer_full_name LIKE ?
+        OR pa.mobile_number LIKE ?
+        OR pa.status LIKE ?
+        OR pa.bre_status LIKE ?
+      )
+    `;
+
+    filterParams.push(
+      likeSearch,
+      likeSearch,
+      likeSearch,
+      likeSearch,
+      likeSearch,
+      likeSearch,
+      likeSearch,
+    );
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | TOTAL COUNT
+  |--------------------------------------------------------------------------
+  */
+
+  const countSql = `
+    SELECT
+      COUNT(*) AS total
+
+    FROM pl_partner_applications pa
+
+    LEFT JOIN ev_disbursement_utr d
+      ON d.lan = pa.lan
+
+    ${whereSql}
+  `;
+
+  const countRows =
+    await queryDB(
+      countSql,
+      filterParams
+    );
+
+  const total =
+    Number(
+      countRows[0]?.total || 0
+    );
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | FETCH LOANS
+  |--------------------------------------------------------------------------
+  */
+
+  const loansSql = `
+    SELECT
+
+      pa.id,
+
+      pa.partner_application_id,
+      pa.partner_application_number,
+      pa.external_application_reference,
+
+      pa.lan,
+
+      pa.customer_full_name,
+      pa.mobile_number,
+      pa.email,
+
+      pa.requested_amount,
+      pa.bre_approved_loan_amount,
+
+      d.Disbursement_Date
+        AS disbursement_date,
+
+      pa.requested_tenure,
+      pa.tenure_type,
+      pa.interest_rate,
+      pa.processing_fee,
+
+      pa.status,
+
+      pa.employment_employment_type,
+      pa.employment_company_name,
+      pa.employment_monthly_income,
+
+      pa.bre_status,
+      pa.bre_reason,
+      pa.bre_final_status,
+
+      pa.created_at,
+      pa.updated_at
+
+    FROM pl_partner_applications pa
+
+    LEFT JOIN ev_disbursement_utr d
+      ON d.lan = pa.lan
+
+    ${whereSql}
+
+    ORDER BY ${sortColumn} ${direction}
+
+    LIMIT ?
+    OFFSET ?
+  `;
+
+  const rows =
+    await queryDB(
+      loansSql,
+      [
+        ...filterParams,
+        pageSize,
+        offset,
+      ]
+    );
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | FRONTEND RESPONSE MAPPING
+  |--------------------------------------------------------------------------
+  */
+
+  const loans =
+    rows.map((row) => ({
+      id: row.id,
+
+      lan:
+        row.lan,
+
+      partner_loan_id:
+        row.partner_application_id,
+
+      partner_application_number:
+        row.partner_application_number,
+
+      external_application_reference:
+        row.external_application_reference,
+
+      product:
+        "Personal Loan",
+
+      customer_name:
+        row.customer_full_name,
+
+      mobile:
+        row.mobile_number,
+
+      email:
+        row.email,
+
+      loan_amount:
+        row.requested_amount,
+
+      disbursal_amount:
+        row.bre_approved_loan_amount,
+
+      disbursement_date:
+        row.disbursement_date,
+
+      tenure:
+        row.requested_tenure,
+
+      tenure_type:
+        row.tenure_type,
+
+      interest_rate:
+        row.interest_rate,
+
+      processing_fee:
+        row.processing_fee,
+
+      status:
+        row.status,
+
+      employment_type:
+        row.employment_employment_type,
+
+      company_name:
+        row.employment_company_name,
+
+      monthly_income:
+        row.employment_monthly_income,
+
+      bre_status:
+        row.bre_status,
+
+      bre_reason:
+        row.bre_reason,
+
+      bre_approved_loan_amount:
+        row.bre_approved_loan_amount,
+
+      bre_final_status:
+        row.bre_final_status,
+
+      created_at:
+        row.created_at,
+
+      updated_at:
+        row.updated_at,
+    }));
+
+
+  return {
+    rows: loans,
+
+    pagination: {
+      page,
+      pageSize,
+      total,
+
+      totalPages:
+        Math.ceil(
+          total / pageSize
+        ),
+    },
+  };
+}
+
+/*
+|--------------------------------------------------------------------------
 | EXPORT
 |--------------------------------------------------------------------------
 */
@@ -3043,4 +3356,5 @@ module.exports = {
   generatePlPartnerRps,
   validateDisbursementUtrPayload,
   recordDisbursementUtr,
+  getAllPersonalLoans,
 };

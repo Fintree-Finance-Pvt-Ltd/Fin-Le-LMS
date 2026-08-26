@@ -22,6 +22,7 @@ function AppSidebar({
 
   const visibleItems =
   navigationItems.filter((item) =>
+    !item.permission ||
     user?.permissions?.includes(
       item.permission
     )

@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   ShieldCheck,
   UserRound,
+  WalletCards,
 } from "lucide-react";
 
 export const navigationItems = [
@@ -32,5 +33,11 @@ export const navigationItems = [
     path: "/user/dashboard",
     icon: UserRound,
     permission: "user.dashboard",
+  },
+
+  {
+    label: "All Loans",
+    path: "/all-loans",
+    icon: WalletCards,
   },
 ];

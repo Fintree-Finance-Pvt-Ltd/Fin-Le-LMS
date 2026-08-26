@@ -56,8 +56,11 @@ function Login() {
 });
 
     navigate("/", {
-      replace: true,
-    });
+  replace: true,
+  state: {
+    showWelcome: true,
+  },
+});
   } catch (error) {
     setError(
       error.message ||

@@ -14,6 +14,8 @@ router.get(
   requireAuth,
   async (req, res) => {
     try {
+        console.log("✅ ALL LOANS ROUTE REACHED");
+      console.log("Logged in user:", req.session.userId);
       const data =
         await service.getAllPersonalLoans({
           page: req.query.page,

@@ -1,6 +1,4 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const getAllLoans = async ({
   page = 1,
@@ -18,10 +16,13 @@ export const getAllLoans = async ({
   });
 
   const response = await fetch(
-    `${API_BASE_URL}/api/loans/all-loans?${params.toString()}`,
+    `${API_URL}/loans/all-loans?${params.toString()}`,
     {
       method: "GET",
       credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
     }
   );
 
@@ -30,8 +31,8 @@ export const getAllLoans = async ({
   if (!response.ok || !result.success) {
     throw new Error(
       result?.error?.message ||
-      result?.message ||
-      "Failed to fetch loans"
+        result?.message ||
+        "Failed to fetch loans"
     );
   }
 

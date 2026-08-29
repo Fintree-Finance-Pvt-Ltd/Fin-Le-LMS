@@ -1,6 +1,26 @@
 const crypto = require("crypto");
 const db = require("../../../config/db");
 const { runPlPartnerBre } = require("./PartnerBre");
+
+function normalizeProductCode(value) {
+  const code = String(value || "")
+    .trim()
+    .toUpperCase();
+
+  if (
+    code === "PL" ||
+    code === "PERSONAL_LOAN"
+  ) {
+    return "PERSONAL_LOAN";
+  }
+
+  throw apiError(
+    400,
+    "INVALID_PRODUCT_CODE",
+    `Unsupported productCode: ${value}`
+  );
+}
+
 /*
 |--------------------------------------------------------------------------
 | COMMON QUERY
@@ -330,7 +350,10 @@ async function createApplication(body) {
       body.externalApplicationReference,
       body.lan,
       body.sourceSystem,
-      body.productCode,
+      normalizeProductCode(
+        body.productCode
+      ),
+
 
       body.requestedAmount ?? null,
       body.requestedTenure ?? null,
@@ -2314,11 +2337,11 @@ async function recordDisbursementUtr(
   }
 }
 
-  /*
-  |--------------------------------------------------------------------------
-  | GENERATE BULLET RPS
-  |--------------------------------------------------------------------------
-  */
+/*
+|--------------------------------------------------------------------------
+| GENERATE BULLET RPS
+|--------------------------------------------------------------------------
+*/
 
 async function generatePlPartnerRps(lan, connection) {
 
@@ -2328,8 +2351,8 @@ async function generatePlPartnerRps(lan, connection) {
   |--------------------------------------------------------------------------
   */
 
- const [rows] = await connection.query(
-  `SELECT
+  const [rows] = await connection.query(
+    `SELECT
       p.lan,
       p.requested_amount,
       p.requested_tenure,
@@ -2348,8 +2371,8 @@ async function generatePlPartnerRps(lan, connection) {
       ON d.lan = p.lan
    WHERE p.lan = ?
    LIMIT 1`,
-  [lan]
-);
+    [lan]
+  );
 
   const loan = rows[0];
 
@@ -2562,8 +2585,8 @@ async function allocatePlPartner(
 
   while (remaining > 0) {
     const [emiRows] =
-  await connection.query(
-    `SELECT *
+      await connection.query(
+        `SELECT *
      FROM manual_rps_fintree_personal_loan
      WHERE lan = ?
        AND (
@@ -2573,14 +2596,14 @@ async function allocatePlPartner(
      ORDER BY due_date ASC
      LIMIT 1
      FOR UPDATE`,
-    [lan]
-  );
+        [lan]
+      );
 
-const emi = emiRows[0];
+    const emi = emiRows[0];
 
-if (!emi) {
-  break;
-}
+    if (!emi) {
+      break;
+    }
 
     let interestDue =
       Number(
@@ -2712,8 +2735,8 @@ if (!emi) {
 
   while (remaining > 0) {
     const [chargeRows] =
-  await connection.query(
-    `SELECT *
+      await connection.query(
+        `SELECT *
      FROM loan_charges
      WHERE lan = ?
        AND (
@@ -2724,14 +2747,14 @@ if (!emi) {
      ORDER BY due_date ASC, id ASC
      LIMIT 1
      FOR UPDATE`,
-    [lan]
-  );
+        [lan]
+      );
 
-const charge = chargeRows[0];
+    const charge = chargeRows[0];
 
-if (!charge) {
-  break;
-}
+    if (!charge) {
+      break;
+    }
 
     const outstanding =
       Number(charge.amount || 0) -
@@ -3334,7 +3357,7 @@ async function getAllPersonalLoans({
   };
 }
 
-async function getPersonalLoanByLan(lan){
+async function getPersonalLoanByLan(lan) {
 
   const sql = `
     SELECT
@@ -3399,10 +3422,10 @@ async function getPersonalLoanByLan(lan){
 
 }
 
-async function getDisbursementByLan(lan){
+async function getDisbursementByLan(lan) {
 
 
- const sql = `
+  const sql = `
 
  SELECT
 
@@ -3440,29 +3463,29 @@ async function getDisbursementByLan(lan){
  `;
 
 
- const rows =
- await queryDB(
-    sql,
-    [lan]
- );
+  const rows =
+    await queryDB(
+      sql,
+      [lan]
+    );
 
 
- if(!rows.length){
+  if (!rows.length) {
 
-   throw new Error(
-    "Disbursement details not found"
-   );
+    throw new Error(
+      "Disbursement details not found"
+    );
 
- }
+  }
 
 
- return rows[0];
+  return rows[0];
 
 }
 
-async function getPersonalLoanSchedule(lan){
+async function getPersonalLoanSchedule(lan) {
 
-const sql = `
+  const sql = `
 SELECT
 id,
 lan,
@@ -3486,27 +3509,27 @@ WHERE lan = ?
 ORDER BY due_date ASC
 `;
 
-const rows =
-await queryDB(
-    sql,
-    [lan]
-);
-
-if(!rows.length){
-
-    throw new Error(
-        "Repayment schedule not found"
+  const rows =
+    await queryDB(
+      sql,
+      [lan]
     );
 
+  if (!rows.length) {
+
+    throw new Error(
+      "Repayment schedule not found"
+    );
+
+  }
+
+  return rows;
+
 }
 
-return rows;
+async function getExtraChargesByLan(lan) {
 
-}
-
-async function getExtraChargesByLan(lan){
-
-const sql = `
+  const sql = `
 
 SELECT
 
@@ -3532,18 +3555,18 @@ ORDER BY created_at ASC
 `;
 
 
-const rows = await queryDB(
- sql,
- [lan]
-);
+  const rows = await queryDB(
+    sql,
+    [lan]
+  );
 
-return rows;
+  return rows;
 
 }
 
-async function getExtraChargesByLan(lan){
+async function getExtraChargesByLan(lan) {
 
-const sql = `
+  const sql = `
 SELECT
 id,
 emi_id,
@@ -3570,13 +3593,13 @@ ORDER BY created_at ASC
 
 
 
-const rows =
-await queryDB(
- sql,
- [lan]
-);
+  const rows =
+    await queryDB(
+      sql,
+      [lan]
+    );
 
-return rows;
+  return rows;
 
 }
 
@@ -3631,10 +3654,10 @@ async function getApprovedLoans({
 
   const searchParams = search
     ? [
-        `%${search}%`,
-        `%${search}%`,
-        `%${search}%`
-      ]
+      `%${search}%`,
+      `%${search}%`,
+      `%${search}%`
+    ]
     : [];
 
 
@@ -3698,13 +3721,13 @@ async function getApprovedLoans({
 
     rows,
 
-    pagination:{
-      page:Number(page),
-      pageSize:limit,
-      total:Number(
+    pagination: {
+      page: Number(page),
+      pageSize: limit,
+      total: Number(
         countResult.total || 0
       ),
-      totalPages:Math.ceil(
+      totalPages: Math.ceil(
         countResult.total / limit
       )
     }
@@ -3786,11 +3809,11 @@ const getDisbursedLoans = async ({
   const searchParams =
     cleanSearch
       ? [
-          `%${cleanSearch}%`,
-          `%${cleanSearch}%`,
-          `%${cleanSearch}%`,
-          `%${cleanSearch}%`,
-        ]
+        `%${cleanSearch}%`,
+        `%${cleanSearch}%`,
+        `%${cleanSearch}%`,
+        `%${cleanSearch}%`,
+      ]
       : [];
 
 
@@ -3918,6 +3941,6 @@ module.exports = {
   getPersonalLoanSchedule,
   getExtraChargesByLan,
   getDisbursedLoans,
- getApprovedLoans,
+  getApprovedLoans,
 
 };

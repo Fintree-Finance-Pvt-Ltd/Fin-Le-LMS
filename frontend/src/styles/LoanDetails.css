@@ -1,0 +1,297 @@
+/* =====================================================
+   PERSONAL LOAN LMS
+   LOAN DETAILS PREMIUM THEME
+   Black + Emerald
+===================================================== */
+
+
+.loan-details-page {
+
+    background:
+    radial-gradient(
+        circle at top right,
+        rgba(16,185,129,0.12),
+        transparent 35%
+    ),
+    #f8fafc;
+
+    min-height:100vh;
+}
+
+
+
+/* Header */
+
+
+.loan-header {
+
+    background:
+    linear-gradient(
+        135deg,
+        #020617,
+        #064e3b
+    );
+
+    border-radius:24px;
+
+    padding:32px;
+
+    color:white;
+
+    box-shadow:
+    0 20px 50px rgba(0,0,0,.15);
+
+}
+
+
+
+.loan-header h1 {
+
+    font-size:28px;
+
+    font-weight:800;
+
+    letter-spacing:-0.5px;
+
+}
+
+
+
+.loan-header-item {
+
+    background:
+    rgba(255,255,255,.08);
+
+    padding:14px;
+
+    border-radius:14px;
+
+    backdrop-filter:blur(10px);
+
+}
+
+
+
+.loan-header-label {
+
+    color:#a7f3d0;
+
+    font-size:11px;
+
+    text-transform:uppercase;
+
+    letter-spacing:1px;
+
+}
+
+
+
+.loan-header-value {
+
+    margin-top:5px;
+
+    font-weight:600;
+
+    font-size:14px;
+
+}
+
+
+
+
+
+/* Cards */
+
+
+.loan-section-card {
+
+
+    background:white;
+
+    border-radius:22px;
+
+    border:
+
+    1px solid
+
+    #e2e8f0;
+
+
+    padding:26px;
+
+
+    margin-top:24px;
+
+
+    box-shadow:
+
+    0 10px 30px rgba(15,23,42,.05);
+
+
+    transition:.3s ease;
+
+}
+
+
+
+.loan-section-card:hover {
+
+
+    transform:translateY(-3px);
+
+
+    box-shadow:
+
+    0 20px 40px rgba(15,23,42,.08);
+
+}
+
+
+
+
+
+/* Section heading */
+
+
+.loan-section-title {
+
+
+    display:flex;
+
+    align-items:center;
+
+    gap:12px;
+
+    margin-bottom:24px;
+
+}
+
+
+.loan-section-icon {
+
+
+    height:42px;
+
+    width:42px;
+
+
+    border-radius:14px;
+
+
+    background:
+
+    rgba(16,185,129,.12);
+
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+
+    color:#059669;
+
+
+}
+
+
+
+
+
+/* Fields */
+
+
+.loan-field label {
+
+
+    font-size:11px;
+
+    font-weight:700;
+
+    color:#64748b;
+
+
+    letter-spacing:.8px;
+
+    text-transform:uppercase;
+
+
+}
+
+
+
+.loan-field-value {
+
+
+    margin-top:7px;
+
+
+    background:#f8fafc;
+
+
+    border:1px solid #e2e8f0;
+
+
+    border-radius:12px;
+
+
+    padding:13px 15px;
+
+
+    font-size:14px;
+
+
+    font-weight:600;
+
+
+    color:#0f172a;
+
+
+    transition:.25s;
+
+
+}
+
+
+
+.loan-field-value:hover {
+
+
+    border-color:#10b981;
+
+
+    background:#ecfdf5;
+
+
+}
+
+
+
+
+/* Responsive */
+
+
+@media(max-width:768px){
+
+
+.loan-header {
+
+
+padding:22px;
+
+}
+
+
+.loan-header h1 {
+
+
+font-size:22px;
+
+
+}
+
+.loan-section-card {
+padding:20px;
+}
+}

@@ -3334,6 +3334,562 @@ async function getAllPersonalLoans({
   };
 }
 
+async function getPersonalLoanByLan(lan){
+
+  const sql = `
+    SELECT
+
+      pa.id,
+      pa.lan,
+
+      pa.customer_full_name,
+      pa.mobile_number,
+      pa.email,
+
+      pa.requested_amount,
+      pa.bre_approved_loan_amount,
+
+      pa.requested_tenure,
+      pa.tenure_type,
+
+      pa.interest_rate,
+      pa.processing_fee,
+
+      pa.status,
+
+      pa.employment_employment_type,
+      pa.employment_company_name,
+      pa.employment_monthly_income,
+
+      pa.bre_status,
+      pa.bre_reason,
+      pa.bre_final_status,
+
+      pa.created_at,
+      pa.updated_at,
+
+
+      d.Disbursement_UTR,
+      d.Disbursement_Date,
+      d.utr
+
+
+    FROM pl_partner_applications pa
+
+
+    LEFT JOIN ev_disbursement_utr d
+      ON d.lan = pa.lan
+
+
+    WHERE pa.lan = ?
+
+    LIMIT 1
+
+  `;
+
+
+  const rows =
+    await queryDB(
+      sql,
+      [lan]
+    );
+
+
+  return rows[0] || null;
+
+}
+
+async function getDisbursementByLan(lan){
+
+
+ const sql = `
+
+ SELECT
+
+ pa.lan,
+
+ pa.partner_application_id,
+
+ pa.customer_full_name,
+
+ pa.requested_amount,
+
+ pa.bre_approved_loan_amount,
+
+ pa.interest_rate,
+
+ pa.processing_fee,
+
+ pa.requested_tenure,
+
+ d.Disbursement_UTR,
+
+ d.Disbursement_Date
+
+
+ FROM pl_partner_applications pa
+
+
+ LEFT JOIN ev_disbursement_utr d
+
+ ON d.lan = pa.lan
+
+
+ WHERE pa.lan = ?
+
+ `;
+
+
+ const rows =
+ await queryDB(
+    sql,
+    [lan]
+ );
+
+
+ if(!rows.length){
+
+   throw new Error(
+    "Disbursement details not found"
+   );
+
+ }
+
+
+ return rows[0];
+
+}
+
+async function getPersonalLoanSchedule(lan){
+
+const sql = `
+SELECT
+id,
+lan,
+due_date,
+status,
+emi,
+principal,
+interest,
+opening,
+closing,
+remaining_emi,
+remaining_interest,
+remaining_principal,
+payment_date,
+dpd,
+remaining_amount,
+extra_paid
+FROM manual_rps_fintree_personal_loan
+WHERE lan = ?
+
+ORDER BY due_date ASC
+`;
+
+const rows =
+await queryDB(
+    sql,
+    [lan]
+);
+
+if(!rows.length){
+
+    throw new Error(
+        "Repayment schedule not found"
+    );
+
+}
+
+return rows;
+
+}
+
+async function getExtraChargesByLan(lan){
+
+const sql = `
+
+SELECT
+
+id,
+lan,
+charge_date,
+due_date,
+amount,
+paid_amount,
+waived_off,
+charge_type,
+paid_status,
+payment_time,
+created_at,
+remarks
+
+FROM loan_charges
+
+WHERE lan = ?
+
+ORDER BY created_at ASC
+
+`;
+
+
+const rows = await queryDB(
+ sql,
+ [lan]
+);
+
+return rows;
+
+}
+
+async function getExtraChargesByLan(lan){
+
+const sql = `
+SELECT
+id,
+emi_id,
+lan,
+charge_date,
+due_date,
+amount,
+paid_amount,
+waived_amount,
+waived_off,
+paid_status,
+payment_time,
+charge_type,
+created_at,
+remarks
+
+FROM loan_charges
+
+WHERE lan = ?
+
+ORDER BY created_at ASC
+
+`;
+
+
+
+const rows =
+await queryDB(
+ sql,
+ [lan]
+);
+
+return rows;
+
+}
+
+async function getApprovedLoans({
+  page = 1,
+  pageSize = 25,
+  search = "",
+  sortBy = "created_at",
+  sortDir = "desc",
+}) {
+
+  const limit = Math.min(
+    100,
+    Math.max(1, Number(pageSize))
+  );
+
+  const offset =
+    (Number(page) - 1) * limit;
+
+
+  const allowedSort = [
+    "created_at",
+    "lan",
+    "customer_full_name",
+    "requested_amount",
+    "bre_approved_loan_amount"
+  ];
+
+
+  const sortColumn =
+    allowedSort.includes(sortBy)
+      ? sortBy
+      : "created_at";
+
+
+  const direction =
+    sortDir.toLowerCase() === "asc"
+      ? "ASC"
+      : "DESC";
+
+
+  const searchCondition = search
+    ? `
+      AND (
+        lan LIKE ?
+        OR customer_full_name LIKE ?
+        OR mobile_number LIKE ?
+      )
+    `
+    : "";
+
+
+  const searchParams = search
+    ? [
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`
+      ]
+    : [];
+
+
+  const dataQuery = `
+    SELECT
+      id,
+      lan,
+      customer_full_name,
+      partner_application_number,
+      mobile_number,
+      email,
+      requested_amount,
+      bre_approved_loan_amount,
+      bre_final_status,
+      created_at
+
+    FROM pl_partner_applications
+
+    WHERE bre_final_status = 'APPROVED'
+
+    ${searchCondition}
+
+    ORDER BY ${sortColumn} ${direction}
+
+    LIMIT ?
+    OFFSET ?
+  `;
+
+
+  const countQuery = `
+    SELECT COUNT(*) AS total
+
+    FROM pl_partner_applications
+
+    WHERE bre_final_status = 'APPROVED'
+
+    ${searchCondition}
+  `;
+
+
+
+  const [rows] =
+    await db.promise().query(
+      dataQuery,
+      [
+        ...searchParams,
+        limit,
+        offset
+      ]
+    );
+
+
+  const [[countResult]] =
+    await db.promise().query(
+      countQuery,
+      searchParams
+    );
+
+
+  return {
+
+    rows,
+
+    pagination:{
+      page:Number(page),
+      pageSize:limit,
+      total:Number(
+        countResult.total || 0
+      ),
+      totalPages:Math.ceil(
+        countResult.total / limit
+      )
+    }
+
+  };
+
+}
+
+const getDisbursedLoans = async ({
+  page = 1,
+  pageSize = 25,
+  search = "",
+  sortBy = "created_at",
+  sortDir = "desc",
+} = {}) => {
+
+  const pg =
+    Math.max(
+      1,
+      parseInt(page, 10) || 1
+    );
+
+
+  const limit =
+    Math.min(
+      100,
+      Math.max(
+        1,
+        parseInt(pageSize, 10) || 25
+      )
+    );
+
+
+  const offset =
+    (pg - 1) * limit;
+
+
+  const safeSortDir =
+    String(sortDir).toLowerCase() === "asc"
+      ? "ASC"
+      : "DESC";
+
+
+  const allowedSort = [
+    "created_at",
+    "updated_at",
+    "lan",
+    "customer_full_name",
+    "mobile_number",
+    "external_application_reference",
+    "bre_approved_loan_amount",
+    "status",
+  ];
+
+
+  const sortColumn =
+    allowedSort.includes(sortBy)
+      ? sortBy
+      : "created_at";
+
+
+  const cleanSearch =
+    String(search || "").trim();
+
+
+  const searchClause =
+    cleanSearch
+      ? `
+        AND (
+          pa.lan LIKE ?
+          OR pa.customer_full_name LIKE ?
+          OR pa.mobile_number LIKE ?
+          OR pa.external_application_reference LIKE ?
+        )
+      `
+      : "";
+
+
+  const searchParams =
+    cleanSearch
+      ? [
+          `%${cleanSearch}%`,
+          `%${cleanSearch}%`,
+          `%${cleanSearch}%`,
+          `%${cleanSearch}%`,
+        ]
+      : [];
+
+
+  const countSql = `
+    SELECT
+      COUNT(*) AS total
+
+    FROM pl_partner_applications pa
+
+    WHERE pa.status = 'DISBURSED'
+
+    ${searchClause}
+  `;
+
+
+  const dataSql = `
+    SELECT
+
+      pa.id,
+      pa.partner_application_id,
+      pa.partner_application_number,
+      pa.external_application_reference,
+
+      pa.lan,
+
+      pa.customer_full_name,
+      pa.mobile_number,
+
+      pa.bre_approved_loan_amount,
+
+      pa.status,
+
+      pa.created_at,
+      pa.updated_at
+
+    FROM pl_partner_applications pa
+
+    WHERE pa.status = 'DISBURSED'
+
+    ${searchClause}
+
+    ORDER BY pa.${sortColumn} ${safeSortDir}
+
+    LIMIT ? OFFSET ?
+  `;
+
+
+  const [
+    [countRows],
+    [rows],
+  ] = await Promise.all([
+
+    db.promise().query(
+      countSql,
+      searchParams
+    ),
+
+    db.promise().query(
+      dataSql,
+      [
+        ...searchParams,
+        limit,
+        offset,
+      ]
+    ),
+
+  ]);
+
+
+  const total =
+    Number(
+      countRows[0]?.total || 0
+    );
+
+
+  return {
+
+    rows,
+
+    pagination: {
+
+      page: pg,
+
+      pageSize: limit,
+
+      total,
+
+      totalPages:
+        Math.max(
+          1,
+          Math.ceil(total / limit)
+        ),
+
+    },
+
+  };
+
+};
+
 /*
 |--------------------------------------------------------------------------
 | EXPORT
@@ -3357,4 +3913,11 @@ module.exports = {
   validateDisbursementUtrPayload,
   recordDisbursementUtr,
   getAllPersonalLoans,
+  getPersonalLoanByLan,
+  getDisbursementByLan,
+  getPersonalLoanSchedule,
+  getExtraChargesByLan,
+  getDisbursedLoans,
+ getApprovedLoans,
+
 };

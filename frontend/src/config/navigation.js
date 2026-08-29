@@ -4,6 +4,8 @@ import {
   ShieldCheck,
   UserRound,
   WalletCards,
+  BadgeCheck,
+  Banknote
 } from "lucide-react";
 
 export const navigationItems = [
@@ -40,4 +42,16 @@ export const navigationItems = [
     path: "/all-loans",
     icon: WalletCards,
   },
+  {
+    label: "Approved Loans",
+    path: "/approved-loans",
+    icon: BadgeCheck,
+  },
+
+  {
+    label: "Disbursed Loans",
+    path: "/disbursed-loans",
+    icon: Banknote,
+  },
+
 ];

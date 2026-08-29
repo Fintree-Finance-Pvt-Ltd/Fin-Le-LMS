@@ -2,18 +2,32 @@ import {
   Navigate,
   Route,
   Routes,
-} from "react-router";
+} from "react-router-dom";
 
-import AllLoans from "./pages/AllLoans";
 
+// Components
+import AllLoans from "./components/AllLoans";
+import ApprovedLoans from "./components/ApprovedLoans";
+import LoanDetailsPage from "./components/LoanDetailsPage";
+import LoanDetails from "./components/LoanDetails";
+import DisbursementDetails from "./components/DisbursementDetails";
+import DisbursedLoans from "./components/DisbursedLoans";
+
+
+// Auth
 import RequireAuth from "./components/auth/RequireAuth";
 import RequirePermission from "./components/auth/RequirePermission";
 import RoleRedirect from "./components/auth/RoleRedirect";
 
+
+// Layout
 import DashboardLayout from "./layouts/DashboardLayout";
 
+
+// Pages
 import Login from "./pages/auth/Login";
 import ForgotPassword from "./pages/auth/ForgotPassword";
+import DocumentsPage from "./pages/DocumentsPage";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import OperationsDashboard from "./pages/operations/OperationsDashboard";
@@ -22,32 +36,54 @@ import UserDashboard from "./pages/user/UserDashboard";
 
 import Unauthorized from "./pages/Unauthorized";
 
+
 function App() {
+
   return (
+
     <Routes>
-      {/* Home decides access destination */}
+
+
+      {/* Default */}
+
       <Route
         path="/"
-        element={<RoleRedirect />}
+        element={
+          <RoleRedirect />
+        }
       />
 
-      {/* Public routes */}
+
+
+      {/* Public Routes */}
+
       <Route
         path="/login"
-        element={<Login />}
+        element={
+          <Login />
+        }
       />
+
 
       <Route
         path="/forgot-password"
-        element={<ForgotPassword />}
+        element={
+          <ForgotPassword />
+        }
       />
+
 
       <Route
         path="/unauthorized"
-        element={<Unauthorized />}
+        element={
+          <Unauthorized />
+        }
       />
 
-      {/* Authenticated LMS routes */}
+
+
+      {/* Dashboard Layout Routes */}
+
       <Route
         element={
           <RequireAuth>
@@ -55,13 +91,86 @@ function App() {
           </RequireAuth>
         }
       >
-        {/* Common route - available to every logged-in user */}
+
+
+        {/* All Loans */}
+
         <Route
           path="all-loans"
-          element={<AllLoans />}
+          element={
+            <AllLoans />
+          }
         />
 
-        {/* Admin */}
+
+
+        {/* Approved Loans */}
+
+        <Route
+          path="approved-loans"
+          element={
+            <ApprovedLoans />
+          }
+        />
+
+
+
+        {/* Disbursed Loans */}
+
+        <Route
+          path="disbursed-loans"
+          element={
+            <DisbursedLoans />
+          }
+        />
+
+
+
+        {/* Documents */}
+
+        <Route
+          path="documents/:lan"
+          element={
+            <DocumentsPage />
+          }
+        />
+
+
+
+        {/* Loan Details */}
+
+        {/* KEEP THIS FOR ALL LOANS + DISBURSED LOANS */}
+        <Route
+          path="loan-details/:lan"
+          element={
+            <LoanDetailsPage />
+          }
+        />
+
+
+        {/* Approved Loan Details */}
+        <Route
+          path="approved-loan-details/:lan"
+          element={
+            <LoanDetails />
+          }
+        />
+
+
+
+        {/* Disbursement */}
+
+        <Route
+          path="disbursement/:lan"
+          element={
+            <DisbursementDetails />
+          }
+        />
+
+
+
+        {/* Admin Dashboard */}
+
         <Route
           path="admin/dashboard"
           element={
@@ -71,7 +180,10 @@ function App() {
           }
         />
 
-        {/* Operations */}
+
+
+        {/* Operations Dashboard */}
+
         <Route
           path="operations/dashboard"
           element={
@@ -81,7 +193,10 @@ function App() {
           }
         />
 
-        {/* Credit */}
+
+
+        {/* Credit Dashboard */}
+
         <Route
           path="credit/dashboard"
           element={
@@ -91,7 +206,10 @@ function App() {
           }
         />
 
-        {/* User */}
+
+
+        {/* User Dashboard */}
+
         <Route
           path="user/dashboard"
           element={
@@ -100,9 +218,14 @@ function App() {
             </RequirePermission>
           }
         />
+
+
       </Route>
 
-      {/* Unknown URL */}
+
+
+      {/* Unknown Route */}
+
       <Route
         path="*"
         element={
@@ -112,8 +235,13 @@ function App() {
           />
         }
       />
+
+
     </Routes>
+
   );
+
 }
+
 
 export default App;

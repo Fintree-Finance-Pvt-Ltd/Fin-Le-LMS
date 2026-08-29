@@ -1,0 +1,329 @@
+/* =====================================================
+   PERSONAL LOAN LMS
+   DISBURSEMENT DETAILS
+   BLACK + EMERALD THEME
+===================================================== */
+
+
+.disbursement-card {
+
+    background:#ffffff;
+
+    border-radius:24px;
+
+    padding:32px;
+
+    border:1px solid #e2e8f0;
+
+    box-shadow:
+    0 15px 35px rgba(15,23,42,0.06);
+
+    animation:
+    fadeUp .4s ease;
+
+}
+
+
+
+/* Header */
+
+
+.disbursement-header {
+
+
+    display:flex;
+
+    align-items:center;
+
+    gap:14px;
+
+    padding-bottom:18px;
+
+    margin-bottom:25px;
+
+    border-bottom:1px solid #e2e8f0;
+
+}
+
+
+
+.disbursement-header-icon {
+
+
+    width:45px;
+
+    height:45px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    border-radius:14px;
+
+
+    background:
+
+    linear-gradient(
+    135deg,
+    #d1fae5,
+    #a7f3d0
+    );
+
+
+    color:#059669;
+
+}
+
+
+
+.disbursement-header h2 {
+
+
+    font-size:24px;
+
+    font-weight:800;
+
+    color:#020617;
+
+    letter-spacing:-0.3px;
+
+
+}
+
+
+
+
+
+
+/* Grid */
+
+
+.disbursement-grid {
+
+
+    display:grid;
+
+    grid-template-columns:
+
+    repeat(3,1fr);
+
+
+    gap:22px;
+
+
+}
+
+
+
+
+
+
+/* Field */
+
+
+.disbursement-field label {
+
+
+    font-size:10px;
+
+    font-weight:700;
+
+
+    color:#64748b;
+
+
+    text-transform:uppercase;
+
+
+    letter-spacing:1px;
+
+
+}
+
+
+
+
+.disbursement-value {
+
+
+    margin-top:8px;
+
+
+    min-height:45px;
+
+
+    display:flex;
+
+
+    align-items:center;
+
+
+    gap:10px;
+
+
+    padding:12px 15px;
+
+
+    background:#f8fafc;
+
+
+    border:1px solid #dbe4ee;
+
+
+    border-radius:12px;
+
+
+    color:#0f172a;
+
+
+    font-size:14px;
+
+
+    font-weight:600;
+
+
+    transition:.25s;
+
+
+}
+
+
+
+
+
+.disbursement-value:hover {
+
+
+    background:#ecfdf5;
+
+
+    border-color:#10b981;
+
+
+    transform:translateY(-2px);
+
+
+}
+
+
+
+
+
+.disbursement-value svg {
+
+
+    color:#10b981;
+
+    flex-shrink:0;
+
+}
+
+
+
+
+
+
+/* Amount highlight */
+
+
+.amount-value {
+
+
+    color:#047857;
+
+    font-weight:800;
+
+}
+
+
+
+
+
+
+/* Mobile */
+
+
+@media(max-width:1024px){
+
+
+.disbursement-grid {
+
+
+grid-template-columns:
+
+repeat(2,1fr);
+
+
+}
+
+
+}
+
+
+
+
+
+@media(max-width:640px){
+
+
+.disbursement-card {
+
+
+padding:20px;
+
+
+}
+
+
+
+.disbursement-grid {
+
+
+grid-template-columns:1fr;
+
+
+}
+
+
+
+.disbursement-header h2 {
+
+
+font-size:20px;
+
+
+}
+
+
+}
+
+
+
+
+
+
+
+@keyframes fadeUp {
+
+
+from{
+
+opacity:0;
+
+transform:translateY(15px);
+
+}
+
+
+to{
+
+opacity:1;
+
+transform:translateY(0);
+
+}
+
+
+}

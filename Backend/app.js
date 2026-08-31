@@ -17,6 +17,7 @@ const disbursalRoutes = require("./routes/disbursalRoutes");
 const scheduleRoutes = require("./routes/scheduleRoutes");
 const extraChargesRoutes = require("./routes/extraChargesRoutes");
 const documentRoutes = require("./routes/documentRoutes");
+const reportsRoutes = require("./routes/reports");
 
 const plPartnerRoutes = require("./modules/Partners/routes/plPartnerRoutes");
 
@@ -118,6 +119,8 @@ app.use("/api/schedule", scheduleRoutes);
 app.use( "/api/extra-charges", extraChargesRoutes);
 
 app.use( "/api/documents", documentRoutes);
+
+app.use( "/api/reports", reportsRoutes);
 
 // ======================================================
 // START SERVER

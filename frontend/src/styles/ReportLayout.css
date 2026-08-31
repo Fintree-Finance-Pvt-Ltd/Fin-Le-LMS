@@ -1,0 +1,305 @@
+/* ============================================================
+   REPORT DETAIL LAYOUT
+   Matches MIS Listing theme
+============================================================ */
+
+.mis-detail-layout {
+  width: 100%;
+  min-height: 520px;
+
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+
+  gap: 18px;
+
+  padding: 20px;
+
+  box-sizing: border-box;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(16, 185, 129, 0.035),
+      rgba(255, 255, 255, 0.9)
+    ),
+    #f8fafc;
+
+  border: 1px solid #dbe3ec;
+}
+
+
+/* ============================================================
+   LEFT REPORT SIDEBAR
+============================================================ */
+
+.mis-detail-sidebar {
+  height: fit-content;
+
+  padding: 14px;
+
+  border-radius: 14px;
+
+  background: #ffffff;
+
+  border: 1px solid #e2e8f0;
+
+  box-shadow:
+    0 3px 12px
+    rgba(15, 23, 42, 0.04);
+}
+
+
+/* ============================================================
+   BACK TO REPORTS
+============================================================ */
+
+.mis-back-link {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 10px 11px;
+
+  margin-bottom: 18px;
+
+  border-radius: 9px;
+
+  color: #64748b;
+
+  text-decoration: none;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+
+.mis-back-link:hover {
+  color: #047857;
+
+  background: #ecfdf5;
+
+  transform:
+    translateX(-2px);
+}
+
+
+/* ============================================================
+   REPORT NAVIGATION
+============================================================ */
+
+.mis-detail-menu {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+
+.mis-detail-menu-item {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px 12px;
+
+  border-radius: 9px;
+
+  color: #475569;
+
+  text-decoration: none;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+
+.mis-detail-menu-item:hover {
+  color: #047857;
+
+  background: #ecfdf5;
+}
+
+
+.mis-detail-menu-item.active {
+  color: #ffffff;
+
+  background: #10b981;
+
+  box-shadow:
+    0 6px 15px
+    rgba(16, 185, 129, 0.18);
+}
+
+
+.mis-detail-menu-item.active:hover {
+  color: #ffffff;
+
+  background: #059669;
+}
+
+
+/* ============================================================
+   RIGHT CONTENT AREA
+============================================================ */
+
+.mis-detail-content {
+  min-width: 0;
+
+  padding: 22px;
+
+  box-sizing: border-box;
+
+  border-radius: 14px;
+
+  background: #ffffff;
+
+  border: 1px solid #e2e8f0;
+
+  box-shadow:
+    0 3px 12px
+    rgba(15, 23, 42, 0.04);
+}
+
+
+/* ============================================================
+   REPORT HEADER
+============================================================ */
+
+.mis-detail-header {
+  margin-bottom: 22px;
+
+  padding-bottom: 16px;
+
+  border-bottom:
+    1px solid #e2e8f0;
+}
+
+
+/* ============================================================
+   CATEGORY TAG
+============================================================ */
+
+.mis-detail-category {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 4px 9px;
+
+  border-radius: 999px;
+
+  color: #047857;
+
+  background: #ecfdf5;
+
+  border:
+    1px solid #a7f3d0;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  letter-spacing: 0.04em;
+
+  text-transform: uppercase;
+}
+
+
+/* ============================================================
+   REPORT TITLE
+============================================================ */
+
+.mis-detail-header h2 {
+  margin:
+    8px
+    0
+    0;
+
+  color: #0f172a;
+
+  font-size: 20px;
+  font-weight: 700;
+
+  line-height: 1.35;
+}
+
+
+/* ============================================================
+   MOBILE
+============================================================ */
+
+@media (max-width: 850px) {
+
+  .mis-detail-layout {
+    grid-template-columns: 1fr;
+
+    padding: 16px;
+  }
+
+
+  .mis-detail-sidebar {
+    width: 100%;
+
+    box-sizing: border-box;
+  }
+
+
+  .mis-detail-menu {
+    flex-direction: row;
+  }
+
+
+  .mis-detail-menu-item {
+    flex: 1;
+
+    justify-content: center;
+  }
+
+
+  .mis-back-link {
+    width: fit-content;
+  }
+
+}
+
+
+@media (max-width: 550px) {
+
+  .mis-detail-layout {
+    padding: 12px;
+  }
+
+
+  .mis-detail-content {
+    padding: 16px;
+  }
+
+
+  .mis-detail-menu {
+    flex-direction: column;
+  }
+
+
+  .mis-detail-menu-item {
+    justify-content: flex-start;
+  }
+
+
+  .mis-detail-header h2 {
+    font-size: 18px;
+  }
+
+}

@@ -5,7 +5,8 @@ import {
   UserRound,
   WalletCards,
   BadgeCheck,
-  Banknote
+  Banknote,
+  FileChartColumnIncreasing
 } from "lucide-react";
 
 export const navigationItems = [
@@ -52,6 +53,12 @@ export const navigationItems = [
     label: "Disbursed Loans",
     path: "/disbursed-loans",
     icon: Banknote,
+  },
+
+  {
+    label: "MIS Reports",
+    path: "/mis-reports/listing",
+    icon: FileChartColumnIncreasing,
   },
 
 ];

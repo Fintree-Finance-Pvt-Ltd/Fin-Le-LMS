@@ -20,6 +20,13 @@ import RequirePermission from "./components/auth/RequirePermission";
 import RoleRedirect from "./components/auth/RoleRedirect";
 
 
+// Reports
+import ReportsListing from "./components/reports/ReportsListing";
+import ReportLayout from "./components/reports/ReportLayout";
+import TriggerReportForm from "./components/reports/TriggerReportForm";
+import DownloadedReports from "./components/reports/DownloadedReports";
+
+
 // Layout
 import DashboardLayout from "./layouts/DashboardLayout";
 
@@ -38,13 +45,12 @@ import Unauthorized from "./pages/Unauthorized";
 
 
 function App() {
-
   return (
-
     <Routes>
 
-
-      {/* Default */}
+      {/* ======================================================
+          DEFAULT
+      ====================================================== */}
 
       <Route
         path="/"
@@ -54,8 +60,9 @@ function App() {
       />
 
 
-
-      {/* Public Routes */}
+      {/* ======================================================
+          PUBLIC ROUTES
+      ====================================================== */}
 
       <Route
         path="/login"
@@ -81,8 +88,9 @@ function App() {
       />
 
 
-
-      {/* Dashboard Layout Routes */}
+      {/* ======================================================
+          AUTHENTICATED DASHBOARD ROUTES
+      ====================================================== */}
 
       <Route
         element={
@@ -92,8 +100,74 @@ function App() {
         }
       >
 
+        {/* ====================================================
+            MIS REPORTS
+        ==================================================== */}
 
-        {/* All Loans */}
+        <Route
+          path="mis-reports"
+          element={
+            <Navigate
+              to="/mis-reports/listing"
+              replace
+            />
+          }
+        />
+
+
+        <Route
+          path="mis-reports/listing"
+          element={
+            <ReportsListing />
+          }
+        />
+
+
+        <Route
+          path="mis-reports/:reportId"
+          element={
+            <ReportLayout />
+          }
+        >
+
+          {/* Default report screen -> Trigger */}
+
+          <Route
+            index
+            element={
+              <Navigate
+                to="trigger"
+                replace
+              />
+            }
+          />
+
+
+          {/* Trigger Report */}
+
+          <Route
+            path="trigger"
+            element={
+              <TriggerReportForm />
+            }
+          />
+
+
+          {/* Downloaded Reports */}
+
+          <Route
+            path="downloads"
+            element={
+              <DownloadedReports />
+            }
+          />
+
+        </Route>
+
+
+        {/* ====================================================
+            ALL LOANS
+        ==================================================== */}
 
         <Route
           path="all-loans"
@@ -103,8 +177,9 @@ function App() {
         />
 
 
-
-        {/* Approved Loans */}
+        {/* ====================================================
+            APPROVED LOANS
+        ==================================================== */}
 
         <Route
           path="approved-loans"
@@ -114,8 +189,9 @@ function App() {
         />
 
 
-
-        {/* Disbursed Loans */}
+        {/* ====================================================
+            DISBURSED LOANS
+        ==================================================== */}
 
         <Route
           path="disbursed-loans"
@@ -125,8 +201,9 @@ function App() {
         />
 
 
-
-        {/* Documents */}
+        {/* ====================================================
+            DOCUMENTS
+        ==================================================== */}
 
         <Route
           path="documents/:lan"
@@ -136,10 +213,12 @@ function App() {
         />
 
 
+        {/* ====================================================
+            LOAN DETAILS
+        ==================================================== */}
 
-        {/* Loan Details */}
+        {/* Keep for All Loans + Disbursed Loans */}
 
-        {/* KEEP THIS FOR ALL LOANS + DISBURSED LOANS */}
         <Route
           path="loan-details/:lan"
           element={
@@ -149,6 +228,7 @@ function App() {
 
 
         {/* Approved Loan Details */}
+
         <Route
           path="approved-loan-details/:lan"
           element={
@@ -157,8 +237,9 @@ function App() {
         />
 
 
-
-        {/* Disbursement */}
+        {/* ====================================================
+            DISBURSEMENT
+        ==================================================== */}
 
         <Route
           path="disbursement/:lan"
@@ -168,8 +249,9 @@ function App() {
         />
 
 
-
-        {/* Admin Dashboard */}
+        {/* ====================================================
+            ADMIN DASHBOARD
+        ==================================================== */}
 
         <Route
           path="admin/dashboard"
@@ -181,8 +263,9 @@ function App() {
         />
 
 
-
-        {/* Operations Dashboard */}
+        {/* ====================================================
+            OPERATIONS DASHBOARD
+        ==================================================== */}
 
         <Route
           path="operations/dashboard"
@@ -194,8 +277,9 @@ function App() {
         />
 
 
-
-        {/* Credit Dashboard */}
+        {/* ====================================================
+            CREDIT DASHBOARD
+        ==================================================== */}
 
         <Route
           path="credit/dashboard"
@@ -207,8 +291,9 @@ function App() {
         />
 
 
-
-        {/* User Dashboard */}
+        {/* ====================================================
+            USER DASHBOARD
+        ==================================================== */}
 
         <Route
           path="user/dashboard"
@@ -219,12 +304,12 @@ function App() {
           }
         />
 
-
       </Route>
 
 
-
-      {/* Unknown Route */}
+      {/* ======================================================
+          UNKNOWN ROUTE
+      ====================================================== */}
 
       <Route
         path="*"
@@ -236,11 +321,8 @@ function App() {
         }
       />
 
-
     </Routes>
-
   );
-
 }
 
 

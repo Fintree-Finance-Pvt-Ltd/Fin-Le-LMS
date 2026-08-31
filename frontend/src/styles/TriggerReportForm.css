@@ -1,0 +1,361 @@
+/* ============================================================
+   TRIGGER REPORT FORM
+   Light theme + emerald accents
+============================================================ */
+
+.mis-trigger-wrapper {
+  width: 100%;
+}
+
+
+.mis-trigger-form {
+  width: 100%;
+
+  max-width: 760px;
+
+  --mis-bg: #ffffff;
+  --mis-bg-soft: #f8fafc;
+
+  --mis-text: #0f172a;
+  --mis-label: #334155;
+  --mis-muted: #64748b;
+
+  --mis-border: #dbe3ec;
+
+  --mis-green: #10b981;
+  --mis-green-hover: #059669;
+  --mis-green-dark: #047857;
+  --mis-green-soft: #ecfdf5;
+}
+
+
+/* ============================================================
+   TWO COLUMN GRID
+============================================================ */
+
+.mis-form-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
+
+  gap: 18px;
+}
+
+
+/* ============================================================
+   FORM GROUP
+============================================================ */
+
+.mis-form-group {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 7px;
+
+  margin-bottom: 18px;
+}
+
+
+/* ============================================================
+   LABEL
+============================================================ */
+
+.mis-form-group label {
+  color: var(--mis-label);
+
+  font-size: 12px;
+  font-weight: 650;
+}
+
+
+.mis-form-group label span {
+  margin-left: 3px;
+
+  color: var(--mis-green);
+}
+
+
+/* ============================================================
+   INPUT / TEXTAREA / SELECT
+============================================================ */
+
+.mis-form-group input,
+.mis-form-group textarea,
+.mis-form-group select {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 10px 12px;
+
+  border-radius: 9px;
+
+  border:
+    1px solid
+    var(--mis-border);
+
+  background: var(--mis-bg);
+
+  color: var(--mis-text);
+
+  font-family: inherit;
+
+  font-size: 13px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+
+/* ============================================================
+   PLACEHOLDER
+============================================================ */
+
+.mis-form-group input::placeholder,
+.mis-form-group textarea::placeholder {
+  color: #94a3b8;
+}
+
+
+/* ============================================================
+   HOVER
+============================================================ */
+
+.mis-form-group input:hover:not(:disabled),
+.mis-form-group textarea:hover,
+.mis-form-group select:hover:not(:disabled) {
+  border-color: #cbd5e1;
+}
+
+
+/* ============================================================
+   FOCUS
+============================================================ */
+
+.mis-form-group input:focus,
+.mis-form-group textarea:focus,
+.mis-form-group select:focus {
+  border-color:
+    var(--mis-green);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(16, 185, 129, 0.1);
+}
+
+
+/* ============================================================
+   TEXTAREA
+============================================================ */
+
+.mis-form-group textarea {
+  resize: vertical;
+
+  min-height: 105px;
+
+  line-height: 1.5;
+}
+
+
+/* ============================================================
+   DISABLED PRODUCT
+============================================================ */
+
+.mis-form-group input:disabled {
+  color: #475569;
+
+  background: var(--mis-bg-soft);
+
+  border-color: #e2e8f0;
+
+  cursor: not-allowed;
+}
+
+
+/* ============================================================
+   DATE INPUT
+============================================================ */
+
+.mis-form-group input[type="date"] {
+  min-height: 40px;
+}
+
+
+/* ============================================================
+   SUCCESS / ERROR MESSAGE
+============================================================ */
+
+.mis-form-message {
+  margin-bottom: 16px;
+
+  padding: 11px 13px;
+
+  border-radius: 9px;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  line-height: 1.4;
+}
+
+
+/* Success */
+
+.mis-form-message.success {
+  color: #047857;
+
+  background: #ecfdf5;
+
+  border: 1px solid #a7f3d0;
+}
+
+
+/* Error */
+
+.mis-form-message.error {
+  color: #b91c1c;
+
+  background: #fef2f2;
+
+  border: 1px solid #fecaca;
+}
+
+
+/* Fallback if messageType is missing */
+
+.mis-form-message:not(.success):not(.error) {
+  color: #047857;
+
+  background: #ecfdf5;
+
+  border: 1px solid #a7f3d0;
+}
+
+
+/* ============================================================
+   TRIGGER BUTTON
+============================================================ */
+
+.mis-trigger-button {
+  min-width: 130px;
+
+  padding: 10px 18px;
+
+  border: none;
+
+  border-radius: 9px;
+
+  color: #ffffff;
+
+  background: var(--mis-green);
+
+  font-family: inherit;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+
+/* Hover */
+
+.mis-trigger-button:hover:not(:disabled) {
+  background:
+    var(--mis-green-hover);
+
+  transform:
+    translateY(-1px);
+
+  box-shadow:
+    0 7px 18px
+    rgba(16, 185, 129, 0.2);
+}
+
+
+/* Active */
+
+.mis-trigger-button:active:not(:disabled) {
+  transform:
+    translateY(0);
+}
+
+
+/* Disabled */
+
+.mis-trigger-button:disabled {
+  opacity: 0.6;
+
+  cursor: not-allowed;
+
+  transform: none;
+
+  box-shadow: none;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+
+@media (max-width: 650px) {
+
+  .mis-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .mis-trigger-button {
+    width: 100%;
+  }
+
+}
+
+
+/* ============================================================
+   OPTIONAL DARK MODE
+
+   Works later if your app adds:
+   <html class="dark">
+============================================================ */
+
+.dark .mis-trigger-form {
+  --mis-bg: #0d1712;
+  --mis-bg-soft: #111d16;
+
+  --mis-text: #f8fafc;
+  --mis-label: #cbd5e1;
+  --mis-muted: #94a3b8;
+
+  --mis-border:
+    rgba(148, 163, 184, 0.18);
+
+  --mis-green-dark: #6ee7b7;
+
+  --mis-green-soft:
+    rgba(16, 185, 129, 0.12);
+}
+
+
+.dark
+.mis-form-group
+input:disabled {
+  color: #94a3b8;
+
+  border-color:
+    rgba(148, 163, 184, 0.12);
+}

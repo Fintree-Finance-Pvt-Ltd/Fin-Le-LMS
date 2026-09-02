@@ -8,10 +8,10 @@ function normalizeProductCode(value) {
     .toUpperCase();
 
   if (
-    code === "PL" ||
+    code === "FFPL10011" ||
     code === "PERSONAL_LOAN"
   ) {
-    return "PERSONAL_LOAN";
+    return "FFPL10011";
   }
 
   throw apiError(

@@ -6,6 +6,21 @@ const service = require("../services/plPartnerService");
 
 router.use(verifyPartnerApiKey);
 
+router.use((req, res, next) => {
+  console.log(
+    "🔥 PARTNER API HIT:",
+    req.method,
+    req.originalUrl
+  );
+
+  console.log(
+    "🔥 IDEMPOTENCY KEY:",
+    req.headers["idempotency-key"]
+  );
+
+  next();
+});
+
 function correlationId(req) {
   return req.headers["x-correlation-id"] || null;
 }

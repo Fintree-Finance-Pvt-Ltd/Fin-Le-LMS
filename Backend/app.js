@@ -6,6 +6,7 @@ const session = require("express-session");
 const path = require("path");
 
 const db = require("./config/db");
+const apiAuditMiddleware = require("./middleware/apiAuditMiddleware");
 
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -67,6 +68,8 @@ app.use(
   })
 );
 
+// app.use(apiAuditMiddleware);
+
 app.use(
     "/uploads",
     express.static(
@@ -108,7 +111,7 @@ app.use("/api/user",userRoutes);
 // PARTNER / LENDER API ROUTES
 // ======================================================
 
-app.use("/api/partner/v1",plPartnerRoutes);
+app.use("/api/partner/v1", apiAuditMiddleware, plPartnerRoutes);
 
 app.use("/api/loans",loanRoutes);
 

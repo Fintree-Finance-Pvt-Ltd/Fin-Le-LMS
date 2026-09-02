@@ -1023,7 +1023,6 @@ async function updateProfile(
 
     await connection.beginTransaction();
 
-
     const [appRows] =
       await connection.query(
         `SELECT *
@@ -1087,10 +1086,7 @@ async function updateProfile(
           "This detailsVersion already exists with different data",
         );
       }
-
-
       await connection.commit();
-
 
       return {
         detailsVersion,

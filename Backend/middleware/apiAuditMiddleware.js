@@ -62,7 +62,7 @@ function apiAuditMiddleware(req, res, next) {
         try {
 
 
-            await db.promise().query(
+            await db.query(
 
                 `
             INSERT INTO api_audit_logs

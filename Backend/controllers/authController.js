@@ -30,7 +30,6 @@ const register = async (req, res) => {
 
     // 3. Check if email already exists
     const [existingUsers] = await db
-      .promise()
       .execute(
         `SELECT id
          FROM users
@@ -47,7 +46,6 @@ const register = async (req, res) => {
 
     // 4. Get default USER role
     const [roles] = await db
-      .promise()
       .execute(
         `SELECT id, code, name
          FROM roles
@@ -75,7 +73,6 @@ const register = async (req, res) => {
 
     // 6. Insert user with role_id
     const [result] = await db
-      .promise()
       .execute(
         `INSERT INTO users (
           name,
@@ -141,7 +138,6 @@ const login = async (req, res) => {
 
     // 2. Find user + role
     const [users] = await db
-      .promise()
       .execute(
         `SELECT
           u.id,
@@ -276,7 +272,6 @@ const getMe = async (req, res) => {
     // ==================================================
 
     const [users] = await db
-      .promise()
       .execute(
         `SELECT
             u.id,
@@ -315,7 +310,6 @@ const getMe = async (req, res) => {
     // ==================================================
 
     const [rolePermissions] = await db
-      .promise()
       .execute(
         `SELECT
             p.id,
@@ -338,7 +332,6 @@ const getMe = async (req, res) => {
     // ==================================================
 
     const [userPermissions] = await db
-      .promise()
       .execute(
         `SELECT
             p.id,

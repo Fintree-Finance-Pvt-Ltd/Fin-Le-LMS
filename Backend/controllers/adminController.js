@@ -72,7 +72,6 @@ const createUser = async (req, res) => {
     // ==================================================
 
     const [existingUsers] = await db
-      .promise()
       .execute(
         `SELECT id
          FROM users
@@ -93,7 +92,6 @@ const createUser = async (req, res) => {
     // ==================================================
 
     const [roles] = await db
-      .promise()
       .execute(
         `SELECT
             id,
@@ -131,7 +129,6 @@ const createUser = async (req, res) => {
     // ==================================================
 
     const [result] = await db
-      .promise()
       .execute(
         `INSERT INTO users (
             name,
@@ -191,7 +188,6 @@ const createUser = async (req, res) => {
 const getRoles = async (req, res) => {
   try {
     const [roles] = await db
-      .promise()
       .execute(
         `SELECT
             id,
@@ -220,7 +216,6 @@ const getRoles = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const [users] = await db
-      .promise()
       .execute(
         `SELECT
             u.id,
@@ -264,7 +259,6 @@ const getPermissions = async (
 ) => {
   try {
     const [permissions] = await db
-      .promise()
       .execute(
         `SELECT
             id,
@@ -311,7 +305,6 @@ const getUserPermissions = async (
     }
 
     const [users] = await db
-      .promise()
       .execute(
         `SELECT
             u.id,
@@ -340,7 +333,6 @@ const getUserPermissions = async (
 
     const [rolePermissions] =
       await db
-        .promise()
         .execute(
           `SELECT
               p.id,
@@ -362,7 +354,6 @@ const getUserPermissions = async (
 
     const [userPermissions] =
       await db
-        .promise()
         .execute(
           `SELECT
               p.id,
@@ -448,7 +439,7 @@ const getUserPermissions = async (
 
 const updateUserPermissions = async (req, res) => {
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   try {
     const userId = Number(req.params.id);

@@ -27,12 +27,12 @@ function normalizeProductCode(value) {
 |--------------------------------------------------------------------------
 */
 function query(sql, values = []) {
-  return db.promise().query(sql, values);
+  return db.query(sql, values);
 }
 
 async function queryDB(sql, params = []) {
   const [rows] =
-    await db.promise().query(
+    await db.query(
       sql,
       params
     );
@@ -1017,7 +1017,7 @@ async function updateProfile(
   body,
 ) {
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   try {
 
@@ -1924,7 +1924,7 @@ async function waiveExtraCharge(
   payload
 ) {
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -2252,7 +2252,7 @@ async function recordDisbursementUtr(
   payload
 ) {
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -2955,7 +2955,7 @@ async function recordRepayment(
   payload
 ) {
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -3117,7 +3117,7 @@ async function getAllPersonalLoans({
   `;
 
   const filterParams = [
-    "PERSONAL_LOAN",
+    "FFPL10011",
   ];
 
   const cleanSearch =
@@ -3696,7 +3696,7 @@ async function getApprovedLoans({
 
 
   const [rows] =
-    await db.promise().query(
+    await db.query(
       dataQuery,
       [
         ...searchParams,
@@ -3707,7 +3707,7 @@ async function getApprovedLoans({
 
 
   const [[countResult]] =
-    await db.promise().query(
+    await db.query(
       countQuery,
       searchParams
     );
@@ -3862,12 +3862,12 @@ const getDisbursedLoans = async ({
     [rows],
   ] = await Promise.all([
 
-    db.promise().query(
+    db.query(
       countSql,
       searchParams
     ),
 
-    db.promise().query(
+    db.query(
       dataSql,
       [
         ...searchParams,

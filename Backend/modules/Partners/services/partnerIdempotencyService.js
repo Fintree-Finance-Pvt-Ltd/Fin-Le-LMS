@@ -21,7 +21,6 @@ async function reserveIdempotency({
 
   try {
     const [result] = await db
-      .promise()
       .query(
         `INSERT INTO pl_partner_idempotency_records
          (
@@ -66,7 +65,6 @@ async function reserveIdempotency({
   }
 
   const [rows] = await db
-    .promise()
     .query(
       `SELECT *
        FROM pl_partner_idempotency_records
@@ -134,7 +132,6 @@ async function reserveIdempotency({
     crypto.randomUUID();
 
   const [updateResult] = await db
-    .promise()
     .query(
       `UPDATE pl_partner_idempotency_records
        SET processing_status = 'PROCESSING',
@@ -175,7 +172,7 @@ async function completeIdempotency({
   responseStatus,
   responseBody,
 }) {
-  await db.promise().query(
+  await db.query(
     `UPDATE pl_partner_idempotency_records
      SET processing_status = 'COMPLETED',
          response_status = ?,
@@ -203,7 +200,7 @@ async function failIdempotency({
     return;
   }
 
-  await db.promise().query(
+  await db.query(
     `UPDATE pl_partner_idempotency_records
      SET processing_status = 'FAILED',
          lock_token = NULL,

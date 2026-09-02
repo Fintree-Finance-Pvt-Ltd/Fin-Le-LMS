@@ -8,7 +8,7 @@ const db = require("../config/db");
 async function getApplicationByLan(lan) {
 
     const [rows] =
-        await db.promise().query(
+        await db.query(
             `
             SELECT
                 id,
@@ -37,7 +37,7 @@ async function getApplicationByLan(lan) {
 async function getDocuments(lan) {
 
     const [rows] =
-        await db.promise().query(
+        await db.query(
             `
             SELECT
                 id,
@@ -120,7 +120,7 @@ async function uploadDocument({
 
 
     const [result] =
-        await db.promise().query(
+        await db.query(
             `
             INSERT INTO loan_documents
             (
@@ -228,7 +228,7 @@ async function deleteDocument(id) {
 
 
     const [rows] =
-        await db.promise().query(
+        await db.query(
             `
             SELECT
                 id,
@@ -269,7 +269,7 @@ async function deleteDocument(id) {
     }
 
 
-    await db.promise().query(
+    await db.query(
         `
         DELETE FROM loan_documents
         WHERE id = ?
@@ -302,7 +302,7 @@ async function replaceDocument(
 
 
     const [rows] =
-        await db.promise().query(
+        await db.query(
             `
             SELECT *
             FROM loan_documents
@@ -343,7 +343,7 @@ async function replaceDocument(
         `/uploads/documents/${file.filename}`;
 
 
-    await db.promise().query(
+    await db.query(
         `
         UPDATE loan_documents
         SET

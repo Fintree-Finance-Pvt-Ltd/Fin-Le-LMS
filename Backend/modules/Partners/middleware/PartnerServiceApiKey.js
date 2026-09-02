@@ -50,7 +50,7 @@
 //     | FIND API KEY
 //     |--------------------------------------------------------------------------
 //     */
-//     const [rows] = await db.promise().query(
+//     const [rows] = await db.query(
 //       `SELECT
 //          id,
 //          partner_code,
@@ -135,7 +135,7 @@
 //     | UPDATE LAST USED
 //     |--------------------------------------------------------------------------
 //     */
-//     await db.promise().query(
+//     await db.query(
 //       `UPDATE partner_api_keys
 //        SET last_used_at = NOW()
 //        WHERE id = ?`,

@@ -438,7 +438,7 @@ router.post(
 
 
       const [insert] =
-        await db.promise().query(
+        await db.query(
 
           `
 
@@ -570,7 +570,7 @@ router.post(
 
 
           const [result] =
-            await db.promise().query(
+            await db.query(
 
               procedureSql,
 
@@ -589,7 +589,7 @@ router.post(
           if (!rows.length) {
 
 
-            await db.promise().query(
+            await db.query(
 
               `
 
@@ -680,7 +680,7 @@ router.post(
           );
 
 
-          await db.promise().query(
+          await db.query(
 
             `
 
@@ -719,7 +719,7 @@ router.post(
           );
 
 
-          await db.promise().query(
+          await db.query(
 
             `
 
@@ -839,7 +839,7 @@ router.get(
 
 
       const [rows] =
-        await db.promise().query(
+        await db.query(
           sql,
           params
         );

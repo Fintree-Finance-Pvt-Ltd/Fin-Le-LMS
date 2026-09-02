@@ -855,7 +855,7 @@ async function createApplication({ payload }) {
     hashRequestBody(payload);
 
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   let transactionStarted = false;
 
@@ -1109,7 +1109,7 @@ async function recordConsent({
     getInternalClientId();
 
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   let transactionStarted = false;
 
@@ -1277,7 +1277,7 @@ async function updateDetails({
     getInternalClientId();
 
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   let transactionStarted = false;
 
@@ -1551,7 +1551,7 @@ async function requestDecision({
   decisionVersion,
 }) {
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   let transactionStarted = false;
 
@@ -1760,7 +1760,7 @@ async function triggerDisbursal({
   payload,
 }) {
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   let transactionStarted = false;
 

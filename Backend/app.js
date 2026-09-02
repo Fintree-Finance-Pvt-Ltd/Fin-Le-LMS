@@ -21,6 +21,8 @@ const documentRoutes = require("./routes/documentRoutes");
 const reportsRoutes = require("./routes/reports");
 
 const plPartnerRoutes = require("./modules/Partners/routes/plPartnerRoutes");
+const plBreRoutes =
+require("./modules/PersonalLoanBRE/routes/plBreRoutes");
 
 const {
   syncPermissions,
@@ -113,6 +115,8 @@ app.use("/api/user",userRoutes);
 
 app.use("/api/partner/v1", apiAuditMiddleware, plPartnerRoutes);
 
+app.use("/api/personal-loan/bre",plBreRoutes);  // PERSONAL LOAN BRE ROUTES
+
 app.use("/api/loans",loanRoutes);
 
 app.use("/api/disbursal", disbursalRoutes);
@@ -137,9 +141,7 @@ const startServer = async () => {
   try {
 
     // 1. Check database
-    await db
-      .promise()
-      .query("SELECT 1");
+    await db.query("SELECT 1");
 
 
     console.log(

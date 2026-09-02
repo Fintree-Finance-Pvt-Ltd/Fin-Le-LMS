@@ -21,6 +21,7 @@
  *    currently forced to "mock-clear" — "live" mode throws NOT_IMPLEMENTED
  *    since no real AML/bureau integration has been wired up yet).
  */
+const { runPLBRE } = require("../../PersonalLoanBRE/services/plRunBRE");
 const db = require("../../../config/db");
 const {
   POLICY,
@@ -156,7 +157,7 @@ async function runBureau() {
 
 async function loadApplication(
   applicationId,
-  executor = db.promise(),
+  executor = db,
 ) {
   const [[application]] =
     await executor.query(
@@ -174,7 +175,7 @@ async function persistBreSnapshot(
   applicationId,
   stage,
   result,
-  executor = db.promise(),
+  executor = db,
 ) {
   /*
    * PRE_APPROVAL and FINAL_APPROVAL write to non-overlapping columns.
@@ -309,7 +310,7 @@ async function runPreApproval(application) {
     limitAdjusted,
   });
 
-  const bureau = await runBureau();
+  // const bureau = await runBureau();
   result.bureau = bureau;
 
   const bureauScoreMissing = bureau.score === null || bureau.score === undefined;
@@ -586,56 +587,93 @@ async function runFinalApproval(application) {
   return result;
 }
 
-async function runPlPartnerBre(
-  applicationInput,
-  {
-    phase,
-    connection = null,
-  },
-) {
-  if (!applicationInput?.id) {
-    throw new Error(
-      "A PL partner application with an id is required",
-    );
-  }
+// async function runPlPartnerBre(
+//   applicationInput,
+//   {
+//     phase,
+//     connection = null,
+//   },
+// ) {
+//   if (!applicationInput?.id) {
+//     throw new Error(
+//       "A PL partner application with an id is required",
+//     );
+//   }
 
-  if (
-    phase !== "PRE_APPROVAL" &&
-    phase !== "FINAL_APPROVAL"
-  ) {
-    throw new Error(
-      `Invalid BRE phase: ${phase}`,
-    );
-  }
+//   if (
+//     phase !== "PRE_APPROVAL" &&
+//     phase !== "FINAL_APPROVAL"
+//   ) {
+//     throw new Error(
+//       `Invalid BRE phase: ${phase}`,
+//     );
+//   }
 
-  const executor =
-    connection || db.promise();
+//   const executor =
+//     connection || db;
 
-  const application =
-    await loadApplication(
-      applicationInput.id,
-      executor,
-    );
+//   const application =
+//     await loadApplication(
+//       applicationInput.id,
+//       executor,
+//     );
 
-  if (!application) {
-    throw new Error(
-      `PL partner application not found: ${applicationInput.id}`,
-    );
-  }
+//   if (!application) {
+//     throw new Error(
+//       `PL partner application not found: ${applicationInput.id}`,
+//     );
+//   }
 
-  const result =
-    phase === "PRE_APPROVAL"
-      ? await runPreApproval(application)
-      : await runFinalApproval(application);
+//   const result =
+//     phase === "PRE_APPROVAL"
+//       ? await runPreApproval(application)
+//       : await runFinalApproval(application);
 
-  await persistBreSnapshot(
-    application.id,
-    phase,
-    result,
-    executor,
-  );
+//   await persistBreSnapshot(
+//     application.id,
+//     phase,
+//     result,
+//     executor,
+//   );
 
-  return result;
+//   return result;
+// }
+
+async function runPlPartnerBre(app, { phase }) {
+
+    // V1 PRE APPROVAL
+    // Hit Experian + Run PL BRE
+
+    if (phase === "PRE_APPROVAL") {
+
+        const result = await runPLBRE(
+            app.lan
+        );
+
+        return {
+            decision: result.status,
+            reason: result.reason,
+            creditLimit: app.requested_amount,
+            details: result
+        };
+    }
+
+
+    // V2 FINAL APPROVAL
+    // Do not hit Experian again
+
+    if (phase === "FINAL_APPROVAL") {
+
+        return {
+            decision: app.bre_final_status,
+            reason: app.bre_final_reason,
+            creditLimit: app.bre_credit_limit,
+            grossApprovedLoanAmount:
+                app.bre_gross_approved_amount
+        };
+
+    }
+
 }
 
 module.exports = {

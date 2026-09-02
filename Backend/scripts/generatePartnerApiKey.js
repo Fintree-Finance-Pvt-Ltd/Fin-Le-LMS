@@ -19,7 +19,7 @@ async function createPartnerApiKey() {
     const apiKeyPrefix =
       apiKey.substring(0, 12);
 
-    const [result] = await db.promise().query(
+    const [result] = await db.query(
       `
       INSERT INTO partner_api_keys
       (
@@ -56,7 +56,7 @@ async function createPartnerApiKey() {
     console.log("Copy this key now.");
     console.log("=====================================");
 
-    await db.promise().end();
+    await db.end();
 
   } catch (error) {
     console.error(

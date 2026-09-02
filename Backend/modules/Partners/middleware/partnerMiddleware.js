@@ -61,7 +61,7 @@
 //       hashApiKey(receivedKey.trim());
 
 //     const [rows] =
-//       await db.promise().query(
+//       await db.query(
 //         `SELECT
 //            id,
 //            partner_code,
@@ -125,7 +125,7 @@
 //      * Authentication should not fail just because
 //      * this tracking update fails.
 //      */
-//     db.promise()
+//     db
 //       .query(
 //         `UPDATE partner_api_keys
 //          SET last_used_at = NOW(3)

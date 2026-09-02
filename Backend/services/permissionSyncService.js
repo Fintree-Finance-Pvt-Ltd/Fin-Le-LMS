@@ -5,7 +5,7 @@ const PERMISSIONS = require(
 
 const syncPermissions = async () => {
   const connection =
-    await db.promise().getConnection();
+    await db.getConnection();
 
   try {
     console.log(

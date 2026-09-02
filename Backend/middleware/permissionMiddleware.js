@@ -20,7 +20,6 @@ const requirePermission = (permissionCode) => {
       // ================================================
 
       const [users] = await db
-        .promise()
         .execute(
           `SELECT
               u.id,
@@ -78,7 +77,6 @@ const requirePermission = (permissionCode) => {
 
       const [userPermissions] =
         await db
-          .promise()
           .execute(
             `SELECT
                 up.is_allowed
@@ -120,7 +118,6 @@ const requirePermission = (permissionCode) => {
 
       const [rolePermissions] =
         await db
-          .promise()
           .execute(
             `SELECT
                 rp.id

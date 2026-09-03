@@ -3,9 +3,14 @@ const PERMISSIONS = require(
   "../config/permissions"
 );
 
+
 const syncPermissions = async () => {
   const connection =
     await db.getConnection();
+
+    console.log("PERMISSIONS TYPE:", typeof PERMISSIONS);
+console.log("IS ARRAY:", Array.isArray(PERMISSIONS));
+console.log("VALUE:", PERMISSIONS);
 
   try {
     console.log(

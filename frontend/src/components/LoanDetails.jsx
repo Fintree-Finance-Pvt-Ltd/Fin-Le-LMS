@@ -333,7 +333,7 @@ const LoanDetails = () => {
 
           <Field
             label="Date Of Birth"
-            value={loan.date_of_birth}
+            value={loan.date_of_birth?.split("T")[0]}
           />
 
 

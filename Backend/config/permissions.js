@@ -26,6 +26,34 @@ const PERMISSIONS = Object.freeze([
     description: "Access User Dashboard",
     route: "/user/dashboard",
   },
+
+  {
+    code: "loans.all",
+    name: "All Loans",
+    description: "Access All Loans",
+    route: "/all-loans",
+  },
+
+  {
+    code: "loans.approved",
+    name: "Approved Loans",
+    description: "Access Approved Loans",
+    route: "/approved-loans",
+  },
+
+  {
+    code: "loans.disbursed",
+    name: "Disbursed Loans",
+    description: "Access Disbursed Loans",
+    route: "/disbursed-loans",
+  },
+
+  {
+    code: "reports.mis",
+    name: "MIS Reports",
+    description: "Access MIS Reports",
+    route: "/mis-reports/listing",
+  },
 ]);
 
 module.exports = PERMISSIONS;

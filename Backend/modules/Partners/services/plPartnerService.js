@@ -989,6 +989,20 @@ function buildMergedProfile(app, body) {
     const [column, path]
     of PROFILE_FIELDS
   ) {
+
+    const incomingValue = getValue(body, path);
+
+    console.log(
+      "PROFILE FIELD:",
+      column,
+      "PATH:",
+      path,
+      "INCOMING:",
+      incomingValue,
+      "EXISTING:",
+      app[column],
+    );
+
     merged[column] =
       keepExisting(
         getValue(body, path),
@@ -1032,7 +1046,6 @@ async function updateProfile(
          FOR UPDATE`,
         [partnerApplicationId],
       );
-
 
     const app =
       appRows[0];
@@ -1140,8 +1153,16 @@ async function updateProfile(
         app,
         body,
       );
+    console.log("REQUEST MANDATE:", JSON.stringify(body.mandate));
 
+    const test = {
+      umrn: getValue(body, "mandate.umrn"),
+      provider: getValue(body, "mandate.provider"),
+      type: getValue(body, "mandate.mandateType"),
+      authorizedAt: getValue(body, "mandate.authorizedAt"),
+    };
 
+    console.log("MANDATE VALUES:", test);
 
     /*
     |--------------------------------------------------------------------------
@@ -3357,65 +3378,23 @@ async function getPersonalLoanByLan(lan) {
 
   const sql = `
     SELECT
-
-      pa.id,
-      pa.lan,
-
-      pa.customer_full_name,
-      pa.mobile_number,
-      pa.email,
-
-      pa.requested_amount,
-      pa.bre_approved_loan_amount,
-
-      pa.requested_tenure,
-      pa.tenure_type,
-
-      pa.interest_rate,
-      pa.processing_fee,
-
-      pa.status,
-
-      pa.employment_employment_type,
-      pa.employment_company_name,
-      pa.employment_monthly_income,
-
-      pa.bre_status,
-      pa.bre_reason,
-      pa.bre_final_status,
-
-      pa.created_at,
-      pa.updated_at,
-
-
+      pa.*,
       d.Disbursement_UTR,
       d.Disbursement_Date,
       d.utr
-
-
     FROM pl_partner_applications pa
-
-
     LEFT JOIN ev_disbursement_utr d
       ON d.lan = pa.lan
-
-
     WHERE pa.lan = ?
-
     LIMIT 1
-
   `;
 
-
-  const rows =
-    await queryDB(
-      sql,
-      [lan]
-    );
-
+  const rows = await queryDB(
+    sql,
+    [lan]
+  );
 
   return rows[0] || null;
-
 }
 
 async function getDisbursementByLan(lan) {

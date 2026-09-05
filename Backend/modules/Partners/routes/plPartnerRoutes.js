@@ -151,15 +151,33 @@ router.post("/application", async (req, res) => {
 | 2. SUBMIT CONSENT
 |--------------------------------------------------------------------------
 */
+/*
+|--------------------------------------------------------------------------
+| Each consentType is a distinct consent on the same application, so the
+| partner sends a distinct Idempotency-Key suffix per consentType rather
+| than reusing one suffix for every consent call.
+|--------------------------------------------------------------------------
+*/
+const CONSENT_IDEMPOTENCY_SUFFIXES = {
+  LENDER_DATA_SHARING: ":LENDER_SUBMIT_CONSENT:V1",
+  AADHAAR_KYC: ":CONSENT:KYC:V1",
+  ACCOUNT_AGGREGATOR: ":CONSENT:AA:V1",
+  LIVE_PHOTO_CAPTURE: ":CONSENT:LPC:V1",
+};
+
 router.post(
   "/applications/:partnerApplicationId/consent",
   async (req, res) => {
     const idempotencyKey =
       req.headers["idempotency-key"] || "";
 
+    const expectedSuffix =
+      CONSENT_IDEMPOTENCY_SUFFIXES[req.body.consentType] ||
+      ":LENDER_SUBMIT_CONSENT:V1";
+
     if (
       !idempotencyKey.endsWith(
-        ":LENDER_SUBMIT_CONSENT:V1",
+        expectedSuffix,
       )
     ) {
       return fail(

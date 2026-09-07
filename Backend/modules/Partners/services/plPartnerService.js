@@ -1,3 +1,4 @@
+const axios = require("axios");
 const crypto = require("crypto");
 const db = require("../../../config/db");
 const { runPlPartnerBre } = require("./PartnerBre");
@@ -1579,6 +1580,100 @@ async function requestDecision(
 }
 
 
+async function triggerEasebuzzPayout({
+  app,
+  amount,
+  uniqueRequestNumber,
+}) {
+  const beneficiaryName = String(
+    app.bank_account_holder_name || "",
+  )
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+
+  const accountNumber = String(
+    app.bank_account_number || "",
+  ).trim();
+
+  const ifsc = String(
+    app.bank_ifsc_code || "",
+  )
+    .trim()
+    .toUpperCase();
+
+  const isTestMode =
+    process.env.ENABLE_REAL_PAYOUT !== "true";
+
+  if (isTestMode) {
+    const now = Date.now();
+
+    return {
+      testMode: true,
+      response: {
+        success: true,
+        data: {
+          transfer_request: {
+            id: `TEST_${now}`,
+            status: "initiated",
+            transfer_date: new Date().toISOString(),
+            unique_transaction_reference:
+              `TESTUTR${now}`,
+            queue_on_low_balance: 0,
+            unique_request_number:
+              uniqueRequestNumber,
+          },
+        },
+      },
+    };
+  }
+
+  const raw = [
+    process.env.EASEBUZZ_KEY,
+    accountNumber,
+    ifsc,
+    "",
+    uniqueRequestNumber,
+    amount,
+    process.env.EASEBUZZ_SALT,
+  ].join("|");
+
+  const authorization = crypto
+    .createHash("sha512")
+    .update(raw)
+    .digest("hex");
+
+  const response = await axios.post(
+    "https://wire.easebuzz.in/api/v1/quick_transfers/initiate/",
+    {
+      key: process.env.EASEBUZZ_KEY,
+      beneficiary_type: "bank_account",
+      beneficiary_name: beneficiaryName,
+      account_number: accountNumber,
+      ifsc,
+      upi_handle: "",
+      unique_request_number:
+        uniqueRequestNumber,
+      payment_mode: "IMPS",
+      amount,
+    },
+    {
+      headers: {
+        Authorization: authorization,
+        "WIRE-API-KEY":
+          process.env.EASEBUZZ_WIRE_API_KEY,
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    },
+  );
+
+  return {
+    testMode: false,
+    response: response.data,
+  };
+}
+
 /*
 |--------------------------------------------------------------------------
 | 6. REQUEST DISBURSAL
@@ -1601,15 +1696,13 @@ async function requestDisbursal(
   partnerApplicationId,
   body,
 ) {
-  const app =
-    await getApplication(
-      partnerApplicationId,
-    );
+  const app = await getApplication(
+    partnerApplicationId,
+  );
 
   if (!app) {
     return null;
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -1629,34 +1722,406 @@ async function requestDisbursal(
     );
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | AMOUNT
+  |--------------------------------------------------------------------------
+  */
 
-  const disbursalReference =
-    `DISB-${Date.now()}`;
+  const amount = Number(body.amount);
 
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0
+  ) {
+    throw apiError(
+      400,
+      "INVALID_DISBURSAL_AMOUNT",
+      "Invalid disbursal amount",
+    );
+  }
+
+  /*
+|--------------------------------------------------------------------------
+| APPROVED AMOUNT CHECK
+|--------------------------------------------------------------------------
+*/
+
+const approvedAmount =
+  Number(app.bre_approved_loan_amount);
+
+if (
+  !Number.isFinite(approvedAmount) ||
+  approvedAmount <= 0
+) {
+  throw apiError(
+    409,
+    "APPROVED_AMOUNT_MISSING",
+    "Approved loan amount is not available",
+  );
+}
+
+if (
+  Math.round(amount * 100) !==
+  Math.round(approvedAmount * 100)
+) {
+  throw apiError(
+    409,
+    "DISBURSAL_AMOUNT_MISMATCH",
+    "Disbursal amount does not match approved loan amount",
+  );
+}
 
   /*
   |--------------------------------------------------------------------------
-  | CALL ACTUAL FUND TRANSFER HERE
+  | REQUIRED DATA
   |--------------------------------------------------------------------------
-  |
-  | Example later:
-  |
-  | await triggerFundTransfer({
-  |   lan: body.lan,
-  |   amount: body.amount
-  | });
-  |
-  | DO NOT mark DISBURSED here.
-  | DISBURSED will come from webhook.
-  |
   */
 
+  if (!app.lan) {
+    throw apiError(
+      400,
+      "LAN_REQUIRED",
+      "LAN is required before disbursal",
+    );
+  }
 
-  return {
-    status: "REQUESTED",
+  if (
+    !app.bank_account_holder_name ||
+    !app.bank_account_number ||
+    !app.bank_ifsc_code
+  ) {
+    throw apiError(
+      400,
+      "BANK_DETAILS_REQUIRED",
+      "Complete bank details are required before disbursal",
+    );
+  }
 
-    disbursalReference,
-  };
+  /*
+  |--------------------------------------------------------------------------
+  | CHECK PREVIOUS PAYOUT
+  |--------------------------------------------------------------------------
+  */
+
+  const [existingRows] = await query(
+    `
+      SELECT
+        id,
+        unique_request_number,
+        status,
+        payout_status
+      FROM quick_transfers
+      WHERE partner_application_id = ?
+      ORDER BY id DESC
+      LIMIT 1
+    `,
+    [app.partner_application_id],
+  );
+
+  const existingTransfer =
+    existingRows[0] || null;
+
+  if (existingTransfer) {
+    const status = String(
+      existingTransfer.status || "",
+    ).toUpperCase();
+
+    const payoutStatus = String(
+      existingTransfer.payout_status || "",
+    ).toLowerCase();
+
+    if (
+      ["INITIATED", "SUCCESS"].includes(
+        status,
+      ) ||
+      [
+        "requested",
+        "initiated",
+        "pending",
+        "processing",
+        "success",
+        "completed",
+        "processed",
+      ].includes(payoutStatus)
+    ) {
+      throw apiError(
+        409,
+        "DISBURSAL_ALREADY_REQUESTED",
+        "Disbursal already requested for this application",
+      );
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | UNIQUE REQUEST NUMBER
+  |--------------------------------------------------------------------------
+  */
+
+  const uniqueRequestNumber =
+    `DISB_${app.id}_${Date.now()}`;
+
+  /*
+  |--------------------------------------------------------------------------
+  | INSERT QUICK TRANSFER
+  |--------------------------------------------------------------------------
+  */
+
+  await query(
+    `
+      INSERT INTO quick_transfers
+      (
+        partner_application_id,
+        lan,
+        unique_request_number,
+        amount,
+        status,
+        payout_status
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    [
+      app.partner_application_id,
+      app.lan,
+      uniqueRequestNumber,
+      amount,
+      "INITIATED",
+      "REQUESTED",
+    ],
+  );
+
+  try {
+    /*
+    |--------------------------------------------------------------------------
+    | CALL EASEBUZZ
+    |--------------------------------------------------------------------------
+    */
+
+    const easebuzzResult =
+      await triggerEasebuzzPayout({
+        app,
+        amount,
+        uniqueRequestNumber,
+      });
+
+    const easebuzzResponse =
+      easebuzzResult.response;
+
+    /*
+    |--------------------------------------------------------------------------
+    | EASEBUZZ FAILURE
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      easebuzzResponse?.success === false
+    ) {
+      const failureReason =
+        easebuzzResponse.message ||
+        "EASEBUZZ_PAYOUT_FAILED";
+
+      await query(
+        `
+          UPDATE quick_transfers
+          SET
+            status = 'FAILED',
+            payout_status = 'failed',
+            failure_reason = ?,
+            raw_api_response = ?,
+            updated_at = NOW()
+          WHERE unique_request_number = ?
+        `,
+        [
+          failureReason,
+          JSON.stringify(
+            easebuzzResponse,
+          ),
+          uniqueRequestNumber,
+        ],
+      );
+
+      throw apiError(
+        502,
+        "EASEBUZZ_PAYOUT_FAILED",
+        failureReason,
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TRANSFER DATA
+    |--------------------------------------------------------------------------
+    */
+
+    const transfer =
+      easebuzzResponse?.data
+        ?.transfer_request;
+
+    if (!transfer) {
+      await query(
+        `
+          UPDATE quick_transfers
+          SET
+            status = 'FAILED',
+            payout_status = 'failed',
+            failure_reason = ?,
+            raw_api_response = ?,
+            updated_at = NOW()
+          WHERE unique_request_number = ?
+        `,
+        [
+          "INVALID_EASEBUZZ_RESPONSE",
+          JSON.stringify(
+            easebuzzResponse,
+          ),
+          uniqueRequestNumber,
+        ],
+      );
+
+      throw apiError(
+        502,
+        "INVALID_EASEBUZZ_RESPONSE",
+        "Invalid response received from Easebuzz",
+      );
+    }
+
+    const providerStatus = String(
+      transfer.status || "initiated",
+    ).toLowerCase();
+
+    /*
+    |--------------------------------------------------------------------------
+    | STORE EASEBUZZ RESPONSE
+    |--------------------------------------------------------------------------
+    */
+
+    await query(
+      `
+        UPDATE quick_transfers
+        SET
+          status = 'INITIATED',
+          payout_status = ?,
+          easebuzz_transfer_id = ?,
+          queue_on_low_balance = ?,
+          transfer_date = ?,
+          utr = ?,
+          raw_api_response = ?,
+          updated_at = NOW()
+        WHERE unique_request_number = ?
+      `,
+      [
+        providerStatus,
+        transfer.id || null,
+        transfer.queue_on_low_balance ?? 0,
+
+        transfer.transfer_date
+          ? String(
+              transfer.transfer_date,
+            ).split("T")[0]
+          : null,
+
+        transfer
+          .unique_transaction_reference ||
+          null,
+
+        JSON.stringify(
+          easebuzzResponse,
+        ),
+
+        uniqueRequestNumber,
+      ],
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | APPLICATION STATUS
+    |--------------------------------------------------------------------------
+    */
+
+    await query(
+      `
+        UPDATE pl_partner_applications
+        SET status = 'DISBURSE_INITIATED'
+        WHERE partner_application_id = ?
+      `,
+      [app.partner_application_id],
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESPONSE
+    |--------------------------------------------------------------------------
+    */
+
+    return {
+      status: "REQUESTED",
+
+      disbursalReference:
+        uniqueRequestNumber,
+
+      provider: "EASEBUZZ",
+
+      providerStatus,
+
+      transferId:
+        transfer.id || null,
+
+      utr:
+        transfer
+          .unique_transaction_reference ||
+        null,
+
+      testMode:
+        easebuzzResult.testMode,
+    };
+  } catch (error) {
+    /*
+     * If we already created an apiError above,
+     * don't convert it again.
+     */
+    if (error.statusCode) {
+      throw error;
+    }
+
+    const responseData =
+      error.response?.data || null;
+
+    const failureReason =
+      responseData?.message ||
+      error.message ||
+      "EASEBUZZ_PAYOUT_FAILED";
+
+    await query(
+      `
+        UPDATE quick_transfers
+        SET
+          status = 'FAILED',
+          payout_status = 'failed',
+          failure_reason = ?,
+          raw_api_response = ?,
+          updated_at = NOW()
+        WHERE unique_request_number = ?
+      `,
+      [
+        failureReason,
+
+        JSON.stringify(
+          responseData || {
+            message: error.message,
+          },
+        ),
+
+        uniqueRequestNumber,
+      ],
+    );
+
+    throw apiError(
+      502,
+      "EASEBUZZ_PAYOUT_FAILED",
+      failureReason,
+    );
+  }
 }
 
 

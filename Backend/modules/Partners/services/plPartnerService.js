@@ -1,7 +1,54 @@
 const axios = require("axios");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 const db = require("../../../config/db");
 const { runPlPartnerBre } = require("./PartnerBre");
+const { POLICY } = require("./PartnerPolicy");
+
+/*
+ * Partner-submitted documents (POST .../docs) are decoded from base64 and
+ * written here as real files, rather than stored as a base64 blob in the DB.
+ */
+const PARTNER_DOCUMENTS_DIR = path.join(
+  __dirname,
+  "../../../uploads/partner-documents",
+);
+
+if (!fs.existsSync(PARTNER_DOCUMENTS_DIR)) {
+  fs.mkdirSync(PARTNER_DOCUMENTS_DIR, {
+    recursive: true,
+  });
+}
+
+function buildPartnerDocumentFileName(
+  partnerDocumentId,
+  originalFileName,
+) {
+  const extension = path
+    .extname(String(originalFileName || ""))
+    .slice(0, 10);
+
+  const base = path
+    .basename(
+      String(originalFileName || ""),
+      extension,
+    )
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 80);
+
+  return `${partnerDocumentId}${base ? `_${base}` : ""}${extension}`;
+}
+
+/*
+ * Provider statuses that mean the money has actually left. Anything else is
+ * still in flight and gets completed by the disbursal webhook instead.
+ */
+const FINAL_PAYOUT_STATUSES = [
+  "success",
+  "completed",
+  "processed",
+];
 
 function normalizeProductCode(value) {
   const code = String(value || "")
@@ -544,22 +591,16 @@ function keepExisting(
   incoming,
   existing,
 ) {
-  // Field not sent → keep previous value
-  if (incoming === undefined) {
-    return existing ?? null;
-  }
-
-  // Explicit null → clear field
-  if (incoming === null) {
-    return null;
-  }
-
-  // Empty string → clear field
+  // Not sent, explicit null, or empty string → keep previous value
   if (
-    typeof incoming === "string" &&
-    incoming.trim() === ""
+    incoming === undefined ||
+    incoming === null ||
+    (
+      typeof incoming === "string" &&
+      incoming.trim() === ""
+    )
   ) {
-    return null;
+    return existing ?? null;
   }
 
   // New value → update field
@@ -1351,48 +1392,150 @@ async function saveDocument(
     crypto.randomUUID();
 
 
-  await query(
-    `INSERT INTO pl_partner_documents
-    (
-      partner_document_id,
-      partner_application_id,
+  /*
+  |--------------------------------------------------------------------------
+  | DECODE + VERIFY
+  |--------------------------------------------------------------------------
+  |
+  | The partner asserts a fileSha256 for the content they sent — verify it
+  | actually matches the decoded bytes rather than trusting it blindly, so a
+  | corrupted/truncated transfer is rejected instead of silently stored.
+  */
 
-      document_type,
-      source_document_id,
+  let fileBuffer;
 
-      file_name,
-      mime_type,
-      file_size,
-      file_sha256,
-      content_base64,
+  try {
+    fileBuffer = Buffer.from(
+      String(body.contentBase64 || ""),
+      "base64",
+    );
+  } catch {
+    fileBuffer = null;
+  }
 
-      source,
-      captured_at
-    )
-    VALUES
-    (
-      ?, ?,
-      ?, ?,
-      ?, ?, ?, ?, ?,
-      ?, ?
-    )`,
-    [
+  if (!fileBuffer || !fileBuffer.length) {
+    throw apiError(
+      400,
+      "INVALID_DOCUMENT_CONTENT",
+      "contentBase64 could not be decoded",
+    );
+  }
+
+  const computedSha256 = crypto
+    .createHash("sha256")
+    .update(fileBuffer)
+    .digest("hex");
+
+  const claimedSha256 = String(
+    body.fileSha256 || "",
+  ).toLowerCase();
+
+  if (computedSha256 !== claimedSha256) {
+    throw apiError(
+      400,
+      "FILE_HASH_MISMATCH",
+      "fileSha256 does not match the decoded file content",
+    );
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | WRITE TO DISK
+  |--------------------------------------------------------------------------
+  */
+
+  const storedFileName =
+    buildPartnerDocumentFileName(
       partnerDocumentId,
-      partnerApplicationId,
-
-      body.documentType,
-      body.sourceDocumentId ?? null,
-
       body.fileName,
-      body.mimeType ?? null,
-      body.fileSize ?? null,
-      body.fileSha256,
-      body.contentBase64,
+    );
 
-      body.source ?? null,
-      body.capturedAt ?? null,
-    ],
+  const filePath = path.join(
+    PARTNER_DOCUMENTS_DIR,
+    storedFileName,
   );
+
+  await fs.promises.writeFile(
+    filePath,
+    fileBuffer,
+  );
+
+  const relativeFilePath =
+    `/uploads/partner-documents/${storedFileName}`;
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | PERSIST METADATA
+  |--------------------------------------------------------------------------
+  */
+
+  try {
+    await query(
+      `INSERT INTO pl_partner_documents
+      (
+        client_id,
+        application_id,
+
+        partner_document_id,
+        partner_application_id,
+
+        document_type,
+        source_document_id,
+
+        original_file_name,
+        stored_file_name,
+        file_path,
+
+        mime_type,
+        file_size,
+        file_sha256,
+
+        source,
+        captured_at,
+
+        received_at
+      )
+      VALUES
+      (
+        ?, ?,
+        ?, ?,
+        ?, ?,
+        ?, ?, ?,
+        ?, ?, ?,
+        ?, ?,
+        NOW(3)
+      )`,
+      [
+        app.client_id || getClientId(),
+        app.id,
+
+        partnerDocumentId,
+        partnerApplicationId,
+
+        body.documentType,
+        body.sourceDocumentId ?? null,
+
+        body.fileName,
+        storedFileName,
+        relativeFilePath,
+
+        body.mimeType ?? null,
+        fileBuffer.length,
+        computedSha256,
+
+        body.source ?? null,
+        body.capturedAt ?? null,
+      ],
+    );
+  } catch (error) {
+    await fs.promises
+      .unlink(filePath)
+      .catch(() => {});
+
+    throw error;
+  }
 
 
   /*
@@ -1420,7 +1563,7 @@ async function saveDocument(
       body.documentType,
 
     fileSha256:
-      body.fileSha256,
+      computedSha256,
 
     status:
       "RECEIVED",
@@ -1579,6 +1722,192 @@ async function requestDecision(
   );
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| RECORD DISBURSEMENT (INTERNAL)
+|--------------------------------------------------------------------------
+|
+| Same work as recordDisbursementUtr, but driven by our own successful
+| Easebuzz payout instead of a partner-supplied UTR, so there is no payload
+| identity to assert. An already-recorded disbursement is not an error here:
+| the money moved either way, so it just returns what already exists.
+|
+*/
+async function recordPlPartnerDisbursement({
+  lan,
+  disbursementUtr,
+  disbursementDate,
+}) {
+  const connection =
+    await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    /*
+     * Lock the application row first so a concurrent call for the same LAN
+     * (e.g. the partner's own POST /disbursement-utr landing at the same
+     * moment as this auto-completion) serializes behind this transaction
+     * instead of racing it to the UTR/RPS dedupe checks below.
+     */
+    await connection.query(
+      `SELECT id
+       FROM pl_partner_applications
+       WHERE lan = ?
+       FOR UPDATE`,
+      [lan],
+    );
+
+    const [existing] =
+      await connection.query(
+        `SELECT id
+         FROM ev_disbursement_utr
+         WHERE lan = ?
+            OR Disbursement_UTR = ?
+         LIMIT 1`,
+        [
+          lan,
+          disbursementUtr,
+        ],
+      );
+
+    if (!existing.length) {
+      await connection.query(
+        `INSERT INTO ev_disbursement_utr
+         (
+           Disbursement_UTR,
+           Disbursement_Date,
+           lan
+         )
+         VALUES (?, ?, ?)`,
+        [
+          disbursementUtr,
+          disbursementDate,
+          lan,
+        ],
+      );
+    }
+
+    const rps =
+      await generatePlPartnerRps(
+        lan,
+        connection,
+      );
+
+    /*
+     * generatePlPartnerRps returns no dueDate when the schedule already
+     * exists, but the webhook still has to tell the partner when repayment
+     * is due, so read it back.
+     */
+    let dueDate = rps.dueDate || null;
+
+    if (!dueDate) {
+      const [rows] =
+        await connection.query(
+          `SELECT due_date
+           FROM manual_rps_fintree_personal_loan
+           WHERE lan = ?
+           ORDER BY due_date ASC
+           LIMIT 1`,
+          [lan],
+        );
+
+      dueDate = rows[0]?.due_date
+        ? new Date(rows[0].due_date)
+            .toISOString()
+            .split("T")[0]
+        : null;
+    }
+
+    await connection.commit();
+
+    return {
+      ...rps,
+      dueDate,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| DISBURSAL WEBHOOK (OUTBOUND)
+|--------------------------------------------------------------------------
+*/
+async function sendPlPartnerDisbursalWebhook({
+  lan,
+  utr,
+  disbursementDate,
+  amount,
+  firstRepaymentDate,
+  eventId,
+}) {
+  const baseUrl = String(
+    process.env.PLP_BASE_URL || "",
+  )
+    .trim()
+    .replace(/\/+$/, "");
+
+  const webhookUrl =
+    String(
+      process.env
+        .PLP_DISBURSAL_WEBHOOK_URL || "",
+    ).trim() ||
+    (baseUrl
+      ? `${baseUrl}/api/webhooks/lenders/FFPL2026/disbursal`
+      : "");
+
+  if (!webhookUrl) {
+    throw new Error(
+      "PLP_DISBURSAL_WEBHOOK_URL or PLP_BASE_URL is required to notify the partner",
+    );
+  }
+
+  const webhookSecret = String(
+    process.env
+      .PLP_DISBURSAL_WEBHOOK_SECRET || "",
+  ).trim();
+
+  await axios.post(
+    webhookUrl,
+    {
+      lan,
+      utr,
+      disbursement_date: disbursementDate,
+      amount: String(amount),
+      firstRepaymentDate,
+      status: "SUCCESS",
+      eventId,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+
+        ...(webhookSecret
+          ? {
+              "x-pl-webhook-secret":
+                webhookSecret,
+            }
+          : {}),
+      },
+      timeout: 15000,
+    },
+  );
+
+  console.log(
+    "[PL PARTNER] Disbursal webhook sent",
+    {
+      lan,
+      webhookUrl,
+      eventId,
+    },
+  );
+}
 
 async function triggerEasebuzzPayout({
   app,
@@ -1769,6 +2098,25 @@ if (
     409,
     "DISBURSAL_AMOUNT_MISMATCH",
     "Disbursal amount does not match approved loan amount",
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| MAX PAYOUT CAP
+|--------------------------------------------------------------------------
+|
+| Last line of defence if the BRE ever approves an amount above policy.
+| Checked before any write or provider call, so a blocked payout leaves no
+| transfer record behind.
+|
+*/
+
+if (amount > POLICY.MAX_LOAN_AMOUNT) {
+  throw apiError(
+    409,
+    "MAX_PAYOUT_LIMIT_EXCEEDED",
+    `Disbursal amount exceeds the maximum permitted payout of ${POLICY.MAX_LOAN_AMOUNT}`,
   );
 }
 
@@ -2000,7 +2348,7 @@ if (
       `
         UPDATE quick_transfers
         SET
-          status = 'INITIATED',
+          status = ?,
           payout_status = ?,
           easebuzz_transfer_id = ?,
           queue_on_low_balance = ?,
@@ -2011,6 +2359,7 @@ if (
         WHERE unique_request_number = ?
       `,
       [
+        providerStatus,
         providerStatus,
         transfer.id || null,
         transfer.queue_on_low_balance ?? 0,
@@ -2033,28 +2382,19 @@ if (
       ],
     );
 
-    /*
-    |--------------------------------------------------------------------------
-    | APPLICATION STATUS
-    |--------------------------------------------------------------------------
-    */
+    const utr =
+      transfer
+        .unique_transaction_reference ||
+      null;
 
-    await query(
-      `
-        UPDATE pl_partner_applications
-        SET status = 'DISBURSE_INITIATED'
-        WHERE partner_application_id = ?
-      `,
-      [app.partner_application_id],
-    );
+    const transferDate =
+      transfer.transfer_date
+        ? String(
+            transfer.transfer_date,
+          ).split("T")[0]
+        : null;
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESPONSE
-    |--------------------------------------------------------------------------
-    */
-
-    return {
+    const baseResponse = {
       status: "REQUESTED",
 
       disbursalReference:
@@ -2067,13 +2407,112 @@ if (
       transferId:
         transfer.id || null,
 
-      utr:
-        transfer
-          .unique_transaction_reference ||
-        null,
+      utr,
 
       testMode:
         easebuzzResult.testMode,
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | NOT FINAL YET
+    |--------------------------------------------------------------------------
+    |
+    | Non-terminal provider status, or the provider has not given us a UTR /
+    | transfer date yet. The money may still land — completion is left to the
+    | disbursal webhook, so do not record the UTR or build the RPS here.
+    |
+    */
+
+    if (
+      !FINAL_PAYOUT_STATUSES.includes(
+        providerStatus,
+      ) ||
+      !utr ||
+      !transferDate
+    ) {
+      await query(
+        `
+          UPDATE pl_partner_applications
+          SET status = 'DISBURSE_INITIATED'
+          WHERE partner_application_id = ?
+        `,
+        [app.partner_application_id],
+      );
+
+      return baseResponse;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | TERMINAL SUCCESS
+    |--------------------------------------------------------------------------
+    |
+    | The money is already out. Nothing below may throw: a failure here must
+    | not turn a completed payout into an error response that invites a retry.
+    |
+    */
+
+    let rps = null;
+
+    try {
+      rps =
+        await recordPlPartnerDisbursement({
+          lan: app.lan,
+          disbursementUtr: utr,
+          disbursementDate: transferDate,
+        });
+    } catch (disbursementError) {
+      console.error(
+        "[PL PARTNER] Disbursement recording failed after a successful payout",
+        {
+          lan: app.lan,
+          uniqueRequestNumber,
+          utr,
+          error: disbursementError.message,
+        },
+      );
+    }
+
+    await query(
+      `
+        UPDATE pl_partner_applications
+        SET status = 'DISBURSED'
+        WHERE partner_application_id = ?
+      `,
+      [app.partner_application_id],
+    );
+
+    try {
+      await sendPlPartnerDisbursalWebhook({
+        lan: app.lan,
+        utr,
+        disbursementDate: transferDate,
+        amount,
+        firstRepaymentDate:
+          rps?.dueDate || null,
+        eventId:
+          `evt-${uniqueRequestNumber}`,
+      });
+    } catch (webhookError) {
+      console.error(
+        "[PL PARTNER] Disbursal webhook failed (non-blocking)",
+        {
+          lan: app.lan,
+          uniqueRequestNumber,
+          error: webhookError.message,
+        },
+      );
+    }
+
+    return {
+      ...baseResponse,
+
+      status: "DISBURSED",
+
+      disbursementDate: transferDate,
+
+      rps,
     };
   } catch (error) {
     /*
@@ -2743,6 +3182,19 @@ async function recordDisbursementUtr(
   try {
     await connection.beginTransaction();
 
+    /*
+     * Lock the application row so a concurrent auto-completion from the
+     * disbursal flow (recordPlPartnerDisbursement) for the same LAN
+     * serializes behind this transaction instead of racing it.
+     */
+    await connection.query(
+      `SELECT id
+       FROM pl_partner_applications
+       WHERE partner_application_id = ?
+       FOR UPDATE`,
+      [partnerApplicationId],
+    );
+
     const application =
       await getApplication(
         partnerApplicationId
@@ -2836,15 +3288,15 @@ async function generatePlPartnerRps(lan, connection) {
   const [rows] = await connection.query(
     `SELECT
       p.lan,
-      p.requested_amount,
-      p.requested_tenure,
+      p.bre_gross_approved_amount,
+      p.selected_offer_tenure,
       p.tenure_type,
       p.interest_rate,
       d.Disbursement_Date,
       DATE_FORMAT(
         DATE_ADD(
           d.Disbursement_Date,
-          INTERVAL p.requested_tenure DAY
+          INTERVAL (p.selected_offer_tenure - 1) DAY
         ),
         '%Y-%m-%d'
       ) AS due_date
@@ -2863,6 +3315,38 @@ async function generatePlPartnerRps(lan, connection) {
       404,
       "DISBURSEMENT_NOT_FOUND",
       "Loan or disbursement details not found"
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | REQUIRE FINAL-APPROVAL DATA
+  |--------------------------------------------------------------------------
+  |
+  | The schedule bills the BRE-approved gross principal over the tenure the
+  | customer actually selected — not what they originally requested, which
+  | can differ (e.g. FTPL00000023: requested 30 days, selected 45).
+  */
+
+  if (
+    loan.bre_gross_approved_amount === null ||
+    loan.bre_gross_approved_amount === undefined
+  ) {
+    throw apiError(
+      409,
+      "APPROVED_AMOUNT_MISSING",
+      "bre_gross_approved_amount is not set for this loan"
+    );
+  }
+
+  if (
+    loan.selected_offer_tenure === null ||
+    loan.selected_offer_tenure === undefined
+  ) {
+    throw apiError(
+      409,
+      "SELECTED_TENURE_MISSING",
+      "selected_offer_tenure is not set for this loan"
     );
   }
 
@@ -2913,10 +3397,10 @@ async function generatePlPartnerRps(lan, connection) {
   */
 
   const amount =
-    Number(loan.requested_amount);
+    Number(loan.bre_gross_approved_amount);
 
   const tenure =
-    Number(loan.requested_tenure);
+    Number(loan.selected_offer_tenure);
 
   const roi =
     Number(loan.interest_rate);
@@ -2939,17 +3423,15 @@ async function generatePlPartnerRps(lan, connection) {
   | INTEREST
   |--------------------------------------------------------------------------
   |
-  | Amount × ROI × Days / 365
+  | Amount × ROI × Days / 365, always rounded UP to the next whole rupee.
   |
   */
 
   const interest =
-    Number(
-      (
-        amount *
-        (roi / 100) *
-        (tenure / 365)
-      ).toFixed(2)
+    Math.ceil(
+      amount *
+      (roi / 100) *
+      (tenure / 365)
     );
 
   const principal = amount;
@@ -2965,6 +3447,9 @@ async function generatePlPartnerRps(lan, connection) {
   |--------------------------------------------------------------------------
   | DUE DATE
   |--------------------------------------------------------------------------
+  |
+  | The disbursement day counts as day 1 of the tenure, so a N-day loan is
+  | due N-1 days after disbursement (computed above via selected_offer_tenure - 1).
   */
 
   const dueDate = loan.due_date;

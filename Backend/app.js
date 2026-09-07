@@ -21,8 +21,8 @@ const documentRoutes = require("./routes/documentRoutes");
 const reportsRoutes = require("./routes/reports");
 
 const plPartnerRoutes = require("./modules/Partners/routes/plPartnerRoutes");
-const plBreRoutes =
-require("./modules/PersonalLoanBRE/routes/plBreRoutes");
+const easebuzzWebhookRoutes = require("./modules/Partners/routes/easebuzzWebhookRoutes");
+const plBreRoutes = require("./modules/PersonalLoanBRE/routes/plBreRoutes");
 
 const {
   syncPermissions,
@@ -114,6 +114,8 @@ app.use("/api/user",userRoutes);
 // ======================================================
 
 app.use("/api/partner/v1", apiAuditMiddleware, plPartnerRoutes);
+
+app.use("/api/webhooks/easebuzz",easebuzzWebhookRoutes); // EASEBUZZ WEBHOOK ROUTES
 
 app.use("/api/personal-loan/bre",plBreRoutes);  // PERSONAL LOAN BRE ROUTES
 

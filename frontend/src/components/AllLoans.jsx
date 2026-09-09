@@ -715,7 +715,7 @@ text-slate-400
 <button
 
 onClick={()=>navigate(
-`/loan-details/${loan.lan}`
+`/customer-details/${loan.lan}`
 )}
 
 className="

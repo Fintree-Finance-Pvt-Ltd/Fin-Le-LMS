@@ -8,6 +8,41 @@ const service =
 
 const router = express.Router();
 
+console.log("✅ loanRoutes.js loaded");
+
+router.get("/customer-details/:lan",requireAuth,async (req, res) => {
+    try {
+      const data =
+        await service.getCustomerDetailsByLan(
+          req.params.lan
+        );
+      if (!data) {
+        return res.status(404).json({
+          success: false,
+          message: "Customer details not found"
+        });
+      }
+      return res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+
+      console.error(
+        "Customer details error:",
+        error
+      );
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          "Failed to fetch customer details"
+      });
+
+    }
+
+  }
+);
 
 router.get("/all-loans", requireAuth, async (req, res) => {
     try {
@@ -45,10 +80,7 @@ router.get("/all-loans", requireAuth, async (req, res) => {
   }
 );
 
-router.get(
-  "/approved-loans",
-  requireAuth,
-  async (req, res) => {
+router.get("/approved-loans",requireAuth, async (req, res) => {
 
     try {
 
@@ -86,10 +118,7 @@ router.get(
   }
 );
 
-router.get(
-  "/disbursed-loans",
-  requireAuth,
-  async (req, res) => {
+router.get("/disbursed-loans",requireAuth,async (req, res) => {
 
     try {
 

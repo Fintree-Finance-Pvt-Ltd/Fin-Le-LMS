@@ -12,7 +12,7 @@ import LoanDetailsPage from "./components/LoanDetailsPage";
 import LoanDetails from "./components/LoanDetails";
 import DisbursementDetails from "./components/DisbursementDetails";
 import DisbursedLoans from "./components/DisbursedLoans";
-
+import CustomerDetails from "./components/CustomerDetails";
 
 // Auth
 import RequireAuth from "./components/auth/RequireAuth";
@@ -176,6 +176,17 @@ function App() {
           }
         />
 
+        {/* ====================================================
+    CUSTOMER DETAILS
+==================================================== */}
+
+        <Route
+          path="customer-details/:lan"
+          element={
+            <CustomerDetails />
+          }
+        />
+
 
         {/* ====================================================
             APPROVED LOANS
@@ -232,7 +243,7 @@ function App() {
         <Route
           path="approved-loan-details/:lan"
           element={
-            <LoanDetails />
+            <CustomerDetails />
           }
         />
 

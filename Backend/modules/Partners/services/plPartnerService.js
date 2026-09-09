@@ -1634,6 +1634,23 @@ function buildBreResponse(
         result.creditLimit ||
         0,
       );
+
+    /*
+     * bre_final_status can only read "APPROVED" here if some other process
+     * set it correctly — but if that process left bre_gross_approved_amount
+     * (and every fallback) empty, silently returning an "approved" response
+     * with a ₹0 limit would be worse than surfacing the data problem.
+     */
+    if (
+      !Number.isFinite(approvedAmount) ||
+      approvedAmount <= 0
+    ) {
+      throw apiError(
+        409,
+        "FINAL_APPROVED_AMOUNT_MISSING",
+        "Application is marked final-approved but has no valid approved loan amount recorded",
+      );
+    }
   }
 
 
@@ -2148,96 +2165,120 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
 
   /*
   |--------------------------------------------------------------------------
-  | CHECK PREVIOUS PAYOUT
+  | CHECK PREVIOUS PAYOUT + RESERVE, UNDER A ROW LOCK
   |--------------------------------------------------------------------------
-  */
-
-  const [existingRows] = await query(
-    `
-      SELECT
-        id,
-        unique_request_number,
-        status,
-        payout_status
-      FROM quick_transfers
-      WHERE partner_application_id = ?
-      ORDER BY id DESC
-      LIMIT 1
-    `,
-    [app.partner_application_id],
-  );
-
-  const existingTransfer =
-    existingRows[0] || null;
-
-  if (existingTransfer) {
-    const status = String(
-      existingTransfer.status || "",
-    ).toUpperCase();
-
-    const payoutStatus = String(
-      existingTransfer.payout_status || "",
-    ).toLowerCase();
-
-    if (
-      ["INITIATED", "SUCCESS"].includes(
-        status,
-      ) ||
-      [
-        "requested",
-        "initiated",
-        "pending",
-        "processing",
-        "success",
-        "completed",
-        "processed",
-      ].includes(payoutStatus)
-    ) {
-      throw apiError(
-        409,
-        "DISBURSAL_ALREADY_REQUESTED",
-        "Disbursal already requested for this application",
-      );
-    }
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | UNIQUE REQUEST NUMBER
-  |--------------------------------------------------------------------------
+  |
+  | The "is there already a payout?" check and the quick_transfers insert
+  | used to run as two separate, unlocked queries — two concurrent disbursal
+  | requests for the same application (a partner retry, or two different
+  | Idempotency-Keys sent by mistake) could both see "no existing transfer"
+  | and both go on to call Easebuzz, disbursing the loan twice. Locking the
+  | application row for the duration of the check+insert serializes
+  | concurrent callers on the same application; the lock is released
+  | (commit) before the Easebuzz call so it isn't held during the slow
+  | external HTTP request.
   */
 
   const uniqueRequestNumber =
     `DISB_${app.id}_${Date.now()}`;
 
-  /*
-  |--------------------------------------------------------------------------
-  | INSERT QUICK TRANSFER
-  |--------------------------------------------------------------------------
-  */
+  const lockConnection =
+    await db.getConnection();
 
-  await query(
-    `
-      INSERT INTO quick_transfers
-      (
-        partner_application_id,
-        lan,
-        unique_request_number,
+  try {
+    await lockConnection.beginTransaction();
+
+    await lockConnection.query(
+      `
+        SELECT id
+        FROM pl_partner_applications
+        WHERE id = ?
+        FOR UPDATE
+      `,
+      [app.id],
+    );
+
+    const [existingRows] =
+      await lockConnection.query(
+        `
+          SELECT
+            id,
+            unique_request_number,
+            status,
+            payout_status
+          FROM quick_transfers
+          WHERE partner_application_id = ?
+          ORDER BY id DESC
+          LIMIT 1
+        `,
+        [app.partner_application_id],
+      );
+
+    const existingTransfer =
+      existingRows[0] || null;
+
+    if (existingTransfer) {
+      const status = String(
+        existingTransfer.status || "",
+      ).toUpperCase();
+
+      const payoutStatus = String(
+        existingTransfer.payout_status || "",
+      ).toLowerCase();
+
+      if (
+        ["INITIATED", "SUCCESS"].includes(
+          status,
+        ) ||
+        [
+          "requested",
+          "initiated",
+          "pending",
+          "processing",
+          "success",
+          "completed",
+          "processed",
+        ].includes(payoutStatus)
+      ) {
+        throw apiError(
+          409,
+          "DISBURSAL_ALREADY_REQUESTED",
+          "Disbursal already requested for this application",
+        );
+      }
+    }
+
+    await lockConnection.query(
+      `
+        INSERT INTO quick_transfers
+        (
+          partner_application_id,
+          lan,
+          unique_request_number,
+          amount,
+          status,
+          payout_status
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        app.partner_application_id,
+        app.lan,
+        uniqueRequestNumber,
         amount,
-        status,
-        payout_status
-      )
-      VALUES (?, ?, ?, ?, ?, ?)
-    `,
-    [
-      app.partner_application_id,
-      app.lan,
-      uniqueRequestNumber,
-      amount,
-      "INITIATED",
-      "REQUESTED",
-    ],
-  );
+        "INITIATED",
+        "REQUESTED",
+      ],
+    );
+
+    await lockConnection.commit();
+  } catch (error) {
+    await lockConnection.rollback().catch(() => {});
+
+    throw error;
+  } finally {
+    lockConnection.release();
+  }
 
   try {
     /*

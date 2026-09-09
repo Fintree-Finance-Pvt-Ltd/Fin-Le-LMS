@@ -1,4 +1,4 @@
-// const crypto = require("crypto");
+const crypto = require("crypto");
 // const db = require("../../../config/db");
 
 
@@ -177,6 +177,21 @@
 //   }
 // };
 
+function timingSafeStringEqual(a, b) {
+  const bufferA = Buffer.from(String(a));
+  const bufferB = Buffer.from(String(b));
+
+  if (bufferA.length !== bufferB.length) {
+    // Still run a compare of equal length so a length mismatch doesn't
+    // short-circuit noticeably faster than a same-length mismatch.
+    crypto.timingSafeEqual(bufferA, bufferA);
+
+    return false;
+  }
+
+  return crypto.timingSafeEqual(bufferA, bufferB);
+}
+
 module.exports = function verifyPartnerApiKey(
   req,
   res,
@@ -223,7 +238,7 @@ module.exports = function verifyPartnerApiKey(
     }
 
     // Key incorrect
-    if (apiKey !== expectedApiKey) {
+    if (!timingSafeStringEqual(apiKey, expectedApiKey)) {
       console.log(
         "FINTREE API authentication failed"
       );

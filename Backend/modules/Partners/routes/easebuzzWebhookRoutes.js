@@ -10,7 +10,17 @@ const { processPayoutWebhook } = require("../services/easebuzz/webhook");
 
 router.post("/payout", async (req, res) => {
     try {
-        console.log("📩 EASEBUZZ PAYOUT WEBHOOK:", JSON.stringify(req.body));
+        // Log only what's useful for tracing — the full body carries the
+        // customer's bank account number and IFSC.
+        const data = req.body?.data || {};
+
+        console.log("📩 EASEBUZZ PAYOUT WEBHOOK:", {
+            event: req.body?.event,
+            unique_request_number: data.unique_request_number,
+            status: data.status,
+            unique_transaction_reference: data.unique_transaction_reference,
+            amount: data.amount,
+        });
 
         const result =
             await processPayoutWebhook(

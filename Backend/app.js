@@ -4,6 +4,8 @@ const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
 const path = require("path");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const db = require("./config/db");
 const apiAuditMiddleware = require("./middleware/apiAuditMiddleware");
@@ -31,10 +33,30 @@ const {
 
 const app = express();
 
+/*
+ * Both UAT and production sit behind an HTTPS-terminating reverse proxy, so
+ * Express needs to trust its X-Forwarded-Proto header for secure cookies
+ * (below) to be recognized as "secure" correctly.
+ */
+app.set("trust proxy", 1);
+
 
 // ======================================================
 // MIDDLEWARE
 // ======================================================
+
+app.use(
+  helmet({
+    /*
+     * The frontend (a separate origin) loads files from /uploads directly
+     * (e.g. <img>/document previews) — helmet's default same-origin policy
+     * would block that.
+     */
+    crossOriginResourcePolicy: {
+      policy: "cross-origin",
+    },
+  }),
+);
 
 app.use(
   cors({
@@ -42,6 +64,33 @@ app.use(
     credentials: true,
   })
 );
+
+
+/*
+ * General rate limit as a baseline defense against flooding/abuse across
+ * the whole API (partner API included).
+ */
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 600,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
+
+/*
+ * Tighter limit on auth to slow down credential brute-forcing.
+ */
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: "Too many attempts, please try again later.",
+  },
+});
 
 
 // IMPORTANT:
@@ -63,7 +112,11 @@ app.use(
 
     cookie: {
       httpOnly: true,
-      secure: false,
+      /*
+       * Deployed environments (UAT/production) are HTTPS-only behind the
+       * proxy above; local dev (no DEPLOYMENT_ENV set) stays plain HTTP.
+       */
+      secure: Boolean(process.env.DEPLOYMENT_ENV),
       sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24,
     },
@@ -97,7 +150,7 @@ app.get("/", (req, res) => {
 // NORMAL LMS ROUTES
 // ======================================================
 
-app.use("/api/auth",authRoutes);
+app.use("/api/auth", authRateLimiter, authRoutes);
 
 app.use("/api/admin",adminRoutes);
 

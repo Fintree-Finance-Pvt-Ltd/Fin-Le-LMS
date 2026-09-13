@@ -4881,6 +4881,221 @@ const getDisbursedLoans = async ({
 
 /*
 |--------------------------------------------------------------------------
+| PORTFOLIO SUMMARY (DASHBOARD)
+|--------------------------------------------------------------------------
+|
+| Single aggregate payload for the ops dashboard: KPI totals, application
+| stage funnel, DPD buckets, disbursal pipeline, and a capped case list.
+| All figures are computed live from the current tables — nothing cached.
+|
+*/
+async function getPortfolioSummary() {
+  /*
+   * normalizeProductCode() accepts both "FFPL10011" and "PERSONAL_LOAN" as
+   * the same product, but some older rows were written before that
+   * normalization existed and still carry the raw "PERSONAL_LOAN" code —
+   * match both so this summary doesn't silently drop real applications
+   * (including disbursed ones).
+   */
+  const PRODUCT_CODES = ["FFPL10011", "PERSONAL_LOAN"];
+
+  const DPD_BUCKETS = [
+    { key: "current", label: "Current", min: -Infinity, max: 0 },
+    { key: "b1_30", label: "1-30 DPD", min: 1, max: 30 },
+    { key: "b31_60", label: "31-60 DPD", min: 31, max: 60 },
+    { key: "b61_90", label: "61-90 DPD", min: 61, max: 90 },
+    { key: "b90_plus", label: "90+ DPD", min: 91, max: Infinity },
+  ];
+
+  const [
+    totalRows,
+    approvedRows,
+    stageRows,
+    disbursedRows,
+    collectedRows,
+    rpsRows,
+    pipelineRows,
+    caseRows,
+  ] = await Promise.all([
+
+    queryDB(
+      `SELECT COUNT(*) AS cnt
+       FROM pl_partner_applications
+       WHERE product_code IN (?, ?)`,
+      PRODUCT_CODES,
+    ),
+
+    queryDB(
+      `SELECT COUNT(*) AS cnt
+       FROM pl_partner_applications
+       WHERE product_code IN (?, ?)
+         AND bre_final_status = 'APPROVED'`,
+      PRODUCT_CODES,
+    ),
+
+    queryDB(
+      `SELECT status, COUNT(*) AS cnt
+       FROM pl_partner_applications
+       WHERE product_code IN (?, ?)
+       GROUP BY status`,
+      PRODUCT_CODES,
+    ),
+
+    queryDB(
+      `SELECT
+         COUNT(*) AS cnt,
+         SUM(pa.bre_approved_loan_amount) AS netAmount
+       FROM ev_disbursement_utr d
+       JOIN pl_partner_applications pa
+         ON pa.lan = d.lan
+       WHERE pa.product_code IN (?, ?)`,
+      PRODUCT_CODES,
+    ),
+
+    queryDB(
+      `SELECT
+         COUNT(*) AS cnt,
+         COALESCE(SUM(r.transfer_amount), 0) AS totalAmount
+       FROM repayments_upload r
+       JOIN pl_partner_applications pa
+         ON pa.lan = r.lan
+       WHERE pa.product_code IN (?, ?)`,
+      PRODUCT_CODES,
+    ),
+
+    queryDB(
+      `SELECT r.lan, r.dpd, r.remaining_amount, r.status
+       FROM manual_rps_fintree_personal_loan r
+       JOIN pl_partner_applications pa
+         ON pa.lan = r.lan
+       WHERE pa.product_code IN (?, ?)`,
+      PRODUCT_CODES,
+    ),
+
+    queryDB(
+      `SELECT qt.status, COUNT(*) AS cnt, SUM(qt.amount) AS amt
+       FROM quick_transfers qt
+       JOIN pl_partner_applications pa
+         ON pa.partner_application_id = qt.partner_application_id
+       WHERE pa.product_code IN (?, ?)
+       GROUP BY qt.status`,
+      PRODUCT_CODES,
+    ),
+
+    queryDB(
+      `SELECT
+         pa.lan,
+         pa.partner_application_number,
+         pa.customer_full_name,
+         pa.status,
+         pa.bre_final_status,
+         pa.requested_amount,
+         pa.bre_approved_loan_amount,
+         pa.created_at,
+         d.Disbursement_Date AS disbursement_date,
+         r.dpd,
+         r.remaining_amount
+       FROM pl_partner_applications pa
+       LEFT JOIN ev_disbursement_utr d
+         ON d.lan = pa.lan
+       LEFT JOIN manual_rps_fintree_personal_loan r
+         ON r.lan = pa.lan
+       WHERE pa.product_code IN (?, ?)
+       ORDER BY pa.created_at DESC
+       LIMIT 200`,
+      PRODUCT_CODES,
+    ),
+  ]);
+
+  const totalCases = Number(totalRows[0]?.cnt || 0);
+  const approvedCases = Number(approvedRows[0]?.cnt || 0);
+  const disbursedCases = Number(disbursedRows[0]?.cnt || 0);
+  const disbursedNetAmount = Number(disbursedRows[0]?.netAmount || 0);
+
+  const outstandingAmount = rpsRows.reduce(
+    (sum, r) => sum + Number(r.remaining_amount || 0),
+    0,
+  );
+
+  const dpdBuckets = DPD_BUCKETS.map((bucket) => {
+    const rows = rpsRows.filter((r) => {
+      const dpd = Number(r.dpd || 0);
+      return dpd >= bucket.min && dpd <= bucket.max;
+    });
+
+    return {
+      key: bucket.key,
+      label: bucket.label,
+      count: rows.length,
+      amount: rows.reduce(
+        (sum, r) => sum + Number(r.remaining_amount || 0),
+        0,
+      ),
+    };
+  });
+
+  const atRiskCount = dpdBuckets
+    .filter((b) => b.key !== "current")
+    .reduce((sum, b) => sum + b.count, 0);
+
+  const portfolioAtRiskPct =
+    rpsRows.length > 0
+      ? Math.round((atRiskCount / rpsRows.length) * 100)
+      : 0;
+
+  return {
+    generatedAt: new Date().toISOString(),
+
+    totals: {
+      totalCases,
+      approvedCases,
+      disbursedCases,
+      disbursedNetAmount,
+      awaitingDisbursal: Math.max(approvedCases - disbursedCases, 0),
+      collectedAmount: Number(collectedRows[0]?.totalAmount || 0),
+      collectedCount: Number(collectedRows[0]?.cnt || 0),
+      outstandingAmount,
+      loansInRepayment: rpsRows.length,
+      portfolioAtRiskPct,
+    },
+
+    stageBreakdown: stageRows.map((r) => ({
+      status: r.status,
+      count: Number(r.cnt),
+    })),
+
+    dpdBuckets,
+
+    disbursementPipeline: pipelineRows.map((r) => ({
+      status: r.status,
+      count: Number(r.cnt),
+      amount: Number(r.amt || 0),
+    })),
+
+    cases: caseRows.map((r) => ({
+      lan: r.lan,
+      applicationNumber: r.partner_application_number,
+      customerName: r.customer_full_name,
+      status: r.status,
+      breFinalStatus: r.bre_final_status,
+      requestedAmount: Number(r.requested_amount || 0),
+      approvedNetAmount:
+        r.bre_approved_loan_amount === null
+          ? null
+          : Number(r.bre_approved_loan_amount),
+      disbursementDate: r.disbursement_date,
+      dpd: r.dpd === null ? null : Number(r.dpd),
+      remainingAmount:
+        r.remaining_amount === null
+          ? null
+          : Number(r.remaining_amount),
+      createdAt: r.created_at,
+    })),
+  };
+}
+
+/*
+|--------------------------------------------------------------------------
 | EXPORT
 |--------------------------------------------------------------------------
 */
@@ -4908,5 +5123,6 @@ module.exports = {
   getExtraChargesByLan,
   getDisbursedLoans,
   getApprovedLoans,
+  getPortfolioSummary,
 
 };

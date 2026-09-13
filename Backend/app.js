@@ -113,10 +113,14 @@ app.use(
     cookie: {
       httpOnly: true,
       /*
-       * Deployed environments (UAT/production) are HTTPS-only behind the
-       * proxy above; local dev (no DEPLOYMENT_ENV set) stays plain HTTP.
+       * "auto" asks express-session to check the actual connection
+       * (req.secure, which respects the trust-proxy setting above) instead
+       * of guessing from an env var — DEPLOYMENT_ENV is set to "uat" even
+       * for local dev over plain HTTP, so a static true/false here either
+       * breaks local login (cookie never sent back over HTTP) or leaves
+       * the deployed site without the Secure flag.
        */
-      secure: Boolean(process.env.DEPLOYMENT_ENV),
+      secure: "auto",
       sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 24,
     },

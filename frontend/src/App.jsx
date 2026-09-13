@@ -37,6 +37,7 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import DocumentsPage from "./pages/DocumentsPage";
 
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import PortfolioDashboard from "./pages/admin/PortfolioDashboard";
 import OperationsDashboard from "./pages/operations/OperationsDashboard";
 import CreditDashboard from "./pages/credit/CreditDashboard";
 import UserDashboard from "./pages/user/UserDashboard";
@@ -163,6 +164,18 @@ function App() {
           />
 
         </Route>
+
+
+        {/* ====================================================
+            PORTFOLIO OVERVIEW
+        ==================================================== */}
+
+        <Route
+          path="portfolio"
+          element={
+            <PortfolioDashboard />
+          }
+        />
 
 
         {/* ====================================================

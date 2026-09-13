@@ -9,6 +9,36 @@ const service =
 const router = express.Router();
 
 
+router.get(
+  "/portfolio-summary",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const data =
+        await service.getPortfolioSummary();
+
+      return res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      console.error(
+        "Portfolio summary error:",
+        error,
+      );
+
+      return res.status(500).json({
+        success: false,
+        error: {
+          message:
+            error.message ||
+            "Failed to load portfolio summary",
+        },
+      });
+    }
+  },
+);
+
 router.get("/all-loans", requireAuth, async (req, res) => {
     try {
         console.log("✅ ALL LOANS ROUTE REACHED");

@@ -1,5 +1,6 @@
 import {
   ClipboardCheck,
+  Gauge,
   LayoutDashboard,
   ShieldCheck,
   UserRound,
@@ -51,6 +52,12 @@ export const permissionGroups = [
     title:"Loan Management",
 
     permissions:[
+      {
+        label:"Portfolio Overview",
+        path:"/portfolio",
+        icon: Gauge
+      },
+
       {
         label:"All Loans",
         path:"/all-loans",

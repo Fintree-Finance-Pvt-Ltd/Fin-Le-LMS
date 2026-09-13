@@ -1,6 +1,35 @@
 const API_URL = import.meta.env.VITE_API_URL;
 
 
+export const getPortfolioSummary = async () => {
+
+  const response = await fetch(
+    `${API_URL}/loans/portfolio-summary`,
+    {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+
+    throw new Error(
+      result?.error?.message ||
+      result?.message ||
+      "Failed to fetch portfolio summary"
+    );
+
+  }
+
+  return result.data;
+};
+
+
 export const getAllLoans = async ({
   page = 1,
   pageSize = 25,

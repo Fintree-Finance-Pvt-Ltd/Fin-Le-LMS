@@ -11,7 +11,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import {
-  getDisbursedLoans
+  getDisbursedLoans,
 } from "../services/loanService";
 
 import "../styles/DisbursedLoans.css";
@@ -19,39 +19,34 @@ import "../styles/DisbursedLoans.css";
 
 function DisbursedLoans() {
 
-  const navigate =
-    useNavigate();
+  const navigate = useNavigate();
 
 
-  const [loans, setLoans] =
-    useState([]);
+  // ======================================================
+  // STATE
+  // ======================================================
+
+  const [loans, setLoans] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+
+  const [error, setError] = useState("");
+
+  const [page, setPage] = useState(1);
+
+  const [search, setSearch] = useState("");
+
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 25,
+    total: 0,
+    totalPages: 0,
+  });
 
 
-  const [loading, setLoading] =
-    useState(true);
-
-
-  const [error, setError] =
-    useState("");
-
-
-  const [page, setPage] =
-    useState(1);
-
-
-  const [search, setSearch] =
-    useState("");
-
-
-  const [pagination, setPagination] =
-    useState({
-      page: 1,
-      pageSize: 25,
-      total: 0,
-      totalPages: 0,
-    });
-
-
+  // ======================================================
+  // FETCH DISBURSED LOANS
+  // ======================================================
 
   const fetchLoans = async (
     targetPage = page,
@@ -65,25 +60,19 @@ function DisbursedLoans() {
       setError("");
 
 
-      const data =
-        await getDisbursedLoans({
+      const data = await getDisbursedLoans({
 
-          page:
-            targetPage,
+        page: targetPage,
 
-          pageSize:
-            25,
+        pageSize: 25,
 
-          search:
-            targetSearch,
+        search: targetSearch,
 
-          sortBy:
-            "created_at",
+        sortBy: "created_at",
 
-          sortDir:
-            "desc",
+        sortDir: "desc",
 
-        });
+      });
 
 
       setLoans(
@@ -100,14 +89,20 @@ function DisbursedLoans() {
         }
       );
 
+
     } catch (err) {
 
-      console.error(err);
+      console.error(
+        "Disbursed loans error:",
+        err
+      );
+
 
       setError(
         err.message ||
         "Failed to load disbursed loans"
       );
+
 
     } finally {
 
@@ -118,6 +113,9 @@ function DisbursedLoans() {
   };
 
 
+  // ======================================================
+  // PAGE CHANGE
+  // ======================================================
 
   useEffect(() => {
 
@@ -127,9 +125,13 @@ function DisbursedLoans() {
     );
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [page]);
 
 
+  // ======================================================
+  // SEARCH
+  // ======================================================
 
   const handleSearch = () => {
 
@@ -137,18 +139,22 @@ function DisbursedLoans() {
 
       setPage(1);
 
-    } else {
-
-      fetchLoans(
-        1,
-        search
-      );
+      return;
 
     }
+
+
+    fetchLoans(
+      1,
+      search
+    );
 
   };
 
 
+  // ======================================================
+  // FORMAT MONEY
+  // ======================================================
 
   const formatMoney = (value) => {
 
@@ -163,12 +169,12 @@ function DisbursedLoans() {
     }
 
 
-    const number =
+    const numberValue =
       Number(value);
 
 
     if (
-      Number.isNaN(number)
+      Number.isNaN(numberValue)
     ) {
 
       return "—";
@@ -183,43 +189,60 @@ function DisbursedLoans() {
         currency: "INR",
         maximumFractionDigits: 2,
       }
-    ).format(number);
+    ).format(numberValue);
 
   };
 
 
+  // ======================================================
+  // OPEN CUSTOMER DETAILS
+  // ======================================================
 
-  const openLoan = (loan) => {
+  const openCustomerDetails = (lan) => {
 
-    if (!loan?.lan) {
+    if (!lan) {
       return;
     }
 
+
     navigate(
-      `/loan-details/${loan.lan}`
+      `/customer-details/${lan}`
     );
 
   };
 
 
+  // ======================================================
+  // UI
+  // ======================================================
 
   return (
 
     <div className="disbursed-page">
 
 
+      {/* ==================================================
+          MAIN CARD
+      ================================================== */}
+
       <div className="disbursed-main-card">
 
 
-        {/* HEADER */}
+        {/* ==================================================
+            HEADER
+        ================================================== */}
 
         <div className="disbursed-header">
 
 
+          {/* TITLE */}
+
           <div className="disbursed-title-wrapper">
 
             <div className="disbursed-title-icon">
+
               <Banknote size={20} />
+
             </div>
 
 
@@ -238,19 +261,28 @@ function DisbursedLoans() {
           </div>
 
 
+          {/* =================================================
+              TOOLBAR
+          ================================================= */}
 
           <div className="disbursed-toolbar">
 
+
+            {/* EXPORT */}
 
             <button
               type="button"
               className="disbursed-export-btn"
             >
+
               <Download size={15} />
+
               Export CSV
+
             </button>
 
 
+            {/* SEARCH */}
 
             <div className="disbursed-search">
 
@@ -262,23 +294,36 @@ function DisbursedLoans() {
 
               <input
                 type="text"
+
                 value={search}
+
                 onChange={(e) =>
-                  setSearch(e.target.value)
+                  setSearch(
+                    e.target.value
+                  )
                 }
+
                 onKeyDown={(e) => {
 
-                  if (e.key === "Enter") {
+                  if (
+                    e.key === "Enter"
+                  ) {
+
                     handleSearch();
+
                   }
 
                 }}
-                placeholder="Search LAN, name, mobile..."
+
+                placeholder="
+                  Search LAN, name, mobile...
+                "
               />
 
             </div>
 
 
+            {/* COUNT */}
 
             <div className="disbursed-count">
 
@@ -293,32 +338,35 @@ function DisbursedLoans() {
 
           </div>
 
-
         </div>
 
 
+        {/* ==================================================
+            ERROR
+        ================================================== */}
 
-        {/* ERROR */}
+        {error && (
 
-        {
-          error && (
+          <div className="disbursed-error">
 
-            <div className="disbursed-error">
-              {error}
-            </div>
+            {error}
 
-          )
-        }
+          </div>
+
+        )}
 
 
-
-        {/* TABLE */}
+        {/* ==================================================
+            TABLE
+        ================================================== */}
 
         <div className="disbursed-table-wrapper">
 
 
           <table className="disbursed-table">
 
+
+            {/* TABLE HEADER */}
 
             <thead>
 
@@ -349,202 +397,270 @@ function DisbursedLoans() {
             </thead>
 
 
+            {/* TABLE BODY */}
 
             <tbody>
 
 
-              {
-                loading ? (
+              {/* LOADING */}
 
-                  <tr>
+              {loading ? (
 
-                    <td
-                      colSpan="5"
-                      className="disbursed-empty"
-                    >
-                      Loading disbursed loans...
-                    </td>
+                <tr>
 
-                  </tr>
+                  <td
+                    colSpan="5"
+                    className="disbursed-empty"
+                  >
 
-                ) : loans.length === 0 ? (
+                    Loading disbursed loans...
 
-                  <tr>
+                  </td>
 
-                    <td
-                      colSpan="5"
-                      className="disbursed-empty"
-                    >
-                      No disbursed loans found.
-                    </td>
+                </tr>
 
-                  </tr>
+              ) : loans.length === 0 ? (
 
-                ) : (
+                /* EMPTY */
 
-                  loans.map((loan) => (
+                <tr>
 
-                    <tr
-                      key={
-                        loan.id ||
-                        loan.lan
-                      }
-                    >
+                  <td
+                    colSpan="5"
+                    className="disbursed-empty"
+                  >
 
+                    No disbursed loans found.
 
-                      {/* CUSTOMER */}
+                  </td>
 
-                      <td>
+                </tr>
 
-                        <button
-                          type="button"
-                          className="disbursed-customer"
-                          onClick={() =>
-                            openLoan(loan)
-                          }
-                        >
-                          {
-                            loan.customer_full_name ||
-                            "—"
-                          }
-                        </button>
+              ) : (
+
+                /* DATA */
+
+                loans.map((loan) => (
+
+                  <tr
+                    key={
+                      loan.id ||
+                      loan.lan
+                    }
+                  >
 
 
-                        <div className="disbursed-subtext">
+                    {/* =================================================
+                        CUSTOMER
+                    ================================================= */}
 
-                          {
-                            loan.mobile_number ||
-                            "No Mobile"
-                          }
+                    <td>
 
-                        </div>
+                      <button
+                        type="button"
 
-                      </td>
+                        className="
+                          disbursed-customer
+                          transition
+                          duration-200
+                          hover:text-emerald-600
+                        "
 
-
-
-                      {/* LAN */}
-
-                      <td>
-
-                        <button
-                          type="button"
-                          className="disbursed-lan"
-                          onClick={() =>
-                            openLoan(loan)
-                          }
-                        >
-                          {loan.lan || "—"}
-                        </button>
-
-
-                        <div className="disbursed-subtext uppercase">
-                          Loan Account No.
-                        </div>
-
-                      </td>
-
-
-
-                      {/* PARTNER ID */}
-
-                      <td className="disbursed-partner-id">
+                        onClick={() =>
+                          openCustomerDetails(
+                            loan.lan
+                          )
+                        }
+                      >
 
                         {
-                          loan.external_application_reference ||
+                          loan.customer_full_name ||
                           "—"
                         }
 
-                      </td>
+                      </button>
 
 
-
-                      {/* DISBURSEMENT */}
-
-                      <td className="disbursed-amount">
+                      <div className="disbursed-subtext">
 
                         {
-                          formatMoney(
-                            loan.bre_approved_loan_amount
+                          loan.mobile_number ||
+                          "No Mobile"
+                        }
+
+                      </div>
+
+                    </td>
+
+
+                    {/* =================================================
+                        LAN
+                    ================================================= */}
+
+                    <td>
+
+                      <button
+                        type="button"
+
+                        className="
+                          disbursed-lan
+                          transition-all
+                          duration-200
+                          hover:border-emerald-400
+                          hover:bg-emerald-50
+                          hover:text-emerald-700
+                          hover:shadow-sm
+                        "
+
+                        onClick={() =>
+                          openCustomerDetails(
+                            loan.lan
                           )
                         }
 
-                      </td>
+                        title="
+                          View customer details
+                        "
+                      >
+
+                        {loan.lan || "—"}
+
+                      </button>
 
 
+                      <div className="disbursed-subtext uppercase">
 
-                      {/* STATUS */}
+                        Loan Account No.
 
-                      <td>
+                      </div>
 
-                        <span className="disbursed-status">
-
-                          {
-                            loan.status ||
-                            "—"
-                          }
-
-                        </span>
-
-                      </td>
+                    </td>
 
 
-                    </tr>
+                    {/* =================================================
+                        PARTNER ID
+                    ================================================= */}
 
-                  ))
+                    <td className="disbursed-partner-id">
 
-                )
-              }
+                      {
+                        loan.external_application_reference ||
+                        "—"
+                      }
+
+                    </td>
+
+
+                    {/* =================================================
+                        DISBURSEMENT
+                    ================================================= */}
+
+                    <td className="disbursed-amount">
+
+                      {
+                        formatMoney(
+                          loan.bre_approved_loan_amount
+                        )
+                      }
+
+                    </td>
+
+
+                    {/* =================================================
+                        STATUS
+                    ================================================= */}
+
+                    <td>
+
+                      <span className="disbursed-status">
+
+                        {
+                          loan.status ||
+                          "—"
+                        }
+
+                      </span>
+
+                    </td>
+
+
+                  </tr>
+
+                ))
+
+              )}
 
 
             </tbody>
 
-
           </table>
-
 
         </div>
 
 
-
-        {/* PAGINATION */}
+        {/* ==================================================
+            PAGINATION
+        ================================================== */}
 
         <div className="disbursed-pagination">
 
 
+          {/* PREVIOUS */}
+
           <button
             type="button"
+
             disabled={
               page <= 1
             }
+
             onClick={() =>
               setPage(
                 page - 1
               )
             }
           >
-            <ChevronLeft size={16} />
+
+            <ChevronLeft
+              size={16}
+            />
+
           </button>
 
 
+          {/* CURRENT PAGE */}
+
           <div className="disbursed-current-page">
+
             {page}
+
           </div>
 
 
+          {/* NEXT */}
+
           <button
             type="button"
+
             disabled={
               page >=
-              (pagination.totalPages || 1)
+              (
+                pagination.totalPages ||
+                1
+              )
             }
+
             onClick={() =>
               setPage(
                 page + 1
               )
             }
           >
-            <ChevronRight size={16} />
+
+            <ChevronRight
+              size={16}
+            />
+
           </button>
 
 
@@ -552,7 +668,6 @@ function DisbursedLoans() {
 
 
       </div>
-
 
     </div>
 

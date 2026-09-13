@@ -232,6 +232,9 @@ const runBureau = async (data) => {
       </urn:process>
    </soapenv:Body>
 </soapenv:Envelope>`;
+
+  console.log("Experian URL:", process.env.EXPERIAN_URL);
+
     const response = await axios.post(process.env.EXPERIAN_URL, soapBody, {
       headers: {
         "Content-Type": "text/xml; charset=utf-8",

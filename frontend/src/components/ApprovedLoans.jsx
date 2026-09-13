@@ -26,7 +26,7 @@ function ApprovedLoans() {
 
   useEffect(() => { fetchLoans(page, search); }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   const money = (value) => value === null || value === undefined || value === "" ? "—" : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value));
-  const openDetails = (lan) => { navigate(`/approved-loan-details/${lan}`);};
+  const openDetails = (lan) => { navigate(`/approved-loan-details/${lan}`); };
 
   return <div className="w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <div className="flex flex-col gap-4 border-b border-slate-100 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">

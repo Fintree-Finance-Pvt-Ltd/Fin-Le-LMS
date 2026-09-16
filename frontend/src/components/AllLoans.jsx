@@ -16,976 +16,1155 @@ import { getAllLoans } from "../services/loanService";
 
 function AllLoans() {
 
+  const navigate = useNavigate();
 
-const navigate = useNavigate();
 
+  const [loans, setLoans] = useState([]);
 
-const [loans,setLoans] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-const [loading,setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-const [error,setError] = useState("");
+  const [page, setPage] = useState(1);
 
-const [page,setPage] = useState(1);
+  const [search, setSearch] = useState("");
 
-const [search,setSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
 
 
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 25,
+    total: 0,
+    totalPages: 0
+  });
 
-const [pagination,setPagination] = useState({
 
-page:1,
-pageSize:25,
-total:0,
-totalPages:0
+  const fetchLoans = async (
+    targetPage = page,
+    targetSearch = search
+  ) => {
 
-});
+    try {
 
+      setLoading(true);
 
+      setError("");
 
 
+      const data =
+        await getAllLoans({
 
-const fetchLoans = async(
-targetPage=page,
-targetSearch=search
-)=>{
+          page: targetPage,
 
+          pageSize: 25,
 
-try{
+          search: targetSearch,
 
+          sortBy: "created_at",
 
-setLoading(true);
+          sortDir: "desc"
 
-setError("");
+        });
 
 
+      setLoans(
+        data.rows || []
+      );
 
-const data =
-await getAllLoans({
 
-page:targetPage,
+      setPagination(
+        data.pagination || {
+          page: 1,
+          pageSize: 25,
+          total: 0,
+          totalPages: 0
+        }
+      );
 
-pageSize:25,
+    }
 
-search:targetSearch,
+    catch (err) {
 
-sortBy:"created_at",
+      console.log(err);
 
-sortDir:"desc"
 
-});
+      setError(
+        err.message ||
+        "Failed to load loans"
+      );
 
+    }
 
+    finally {
 
-setLoans(
-data.rows || []
-);
+      setLoading(false);
 
+    }
 
+  };
 
-setPagination(
 
-data.pagination || {
+  useEffect(() => {
 
-page:1,
+    fetchLoans(page, search);
 
-pageSize:25,
+    // eslint-disable-next-line
+  }, [page]);
 
-total:0,
 
-totalPages:0
+  const handleSearch = () => {
 
-}
+    if (page !== 1) {
 
-);
+      setPage(1);
 
+    }
 
+    else {
 
-}
+      fetchLoans(1, search);
 
-catch(err){
+    }
 
-console.log(err);
+  };
 
 
-setError(
-err.message ||
-"Failed to load loans"
-);
+  const formatMoney = (value) => {
 
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return "—";
+    }
 
-}
 
-finally{
+    return new Intl.NumberFormat(
+      "en-IN",
+      {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 2
+      }
+    ).format(
+      Number(value)
+    );
 
-setLoading(false);
+  };
 
-}
 
+  const formatDate = (value) => {
 
-};
+    if (!value) {
+      return "—";
+    }
 
 
+    const date =
+      new Date(value);
 
 
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return "—";
+    }
 
 
-useEffect(()=>{
+    return date.toLocaleDateString(
+      "en-IN"
+    );
 
+  };
 
-fetchLoans(page,search);
 
+  const getStatusStyle = (
+    status = ""
+  ) => {
 
-// eslint-disable-next-line
+    const value =
+      status.toLowerCase();
 
-},[page]);
 
+    if (
+      value.includes("approved") ||
+      value.includes("accepted") ||
+      value.includes("disbursed")
+    ) {
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    }
 
 
+    if (
+      value.includes("rejected") ||
+      value.includes("failed")
+    ) {
+      return "border-red-200 bg-red-50 text-red-700";
+    }
 
 
+    if (
+      value.includes("pending") ||
+      value.includes("processing")
+    ) {
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    }
 
 
-const handleSearch=()=>{
+    return "border-slate-300 bg-slate-100 text-slate-700";
 
+  };
 
-if(page!==1){
 
-setPage(1);
+  const handleDocuments = (
+    loan
+  ) => {
 
-}
-else{
+    navigate(
+      `/documents/${loan.lan}`
+    );
 
-fetchLoans(1,search);
+  };
 
-}
 
+  const escapeCsvValue = (
+    value
+  ) => {
 
-};
+    if (
+      value === null ||
+      value === undefined
+    ) {
+      return "";
+    }
 
 
+    const stringValue =
+      String(value);
 
 
+    return `"${stringValue.replace(
+      /"/g,
+      '""'
+    )}"`;
 
+  };
 
-const formatMoney=(value)=>{
 
+  const handleExportCsv =
+    async () => {
 
-if(
-value===null ||
-value===undefined ||
-value===""
-)
+      try {
 
-return "—";
+        setExporting(true);
 
+        setError("");
 
 
-return new Intl.NumberFormat(
-"en-IN",
-{
+        const firstResponse =
+          await getAllLoans({
 
-style:"currency",
+            page: 1,
 
-currency:"INR",
+            pageSize: 25,
 
-maximumFractionDigits:2
+            search,
 
-}
+            sortBy: "created_at",
 
-).format(Number(value));
+            sortDir: "desc"
 
+          });
 
-};
 
+        let allRows =
+          firstResponse.rows || [];
 
 
+        const totalPages =
+          firstResponse.pagination
+            ?.totalPages || 1;
 
 
+        for (
+          let currentPage = 2;
+          currentPage <= totalPages;
+          currentPage++
+        ) {
 
-const formatDate=(value)=>{
+          const response =
+            await getAllLoans({
 
+              page: currentPage,
 
-if(!value)
+              pageSize: 25,
 
-return "—";
+              search,
 
+              sortBy: "created_at",
 
+              sortDir: "desc"
 
-const date=new Date(value);
+            });
 
 
+          allRows = [
+            ...allRows,
+            ...(response.rows || [])
+          ];
 
-if(Number.isNaN(date.getTime()))
+        }
 
-return "—";
 
+        if (
+          allRows.length === 0
+        ) {
 
+          setError(
+            "No loan records available to export."
+          );
 
-return date.toLocaleDateString(
-"en-IN"
-);
+          return;
 
+        }
 
-};
 
+        const headers = [
 
+          "Customer Name",
 
+          "Mobile",
 
+          "LAN",
 
+          "Partner ID",
 
-const getStatusStyle=(status="")=>{
+          "Loan Amount",
 
+          "Disbursement Amount",
 
-const value=status.toLowerCase();
+          "Disbursement Date",
 
+          "Status"
 
+        ];
 
-if(
-value.includes("approved") ||
-value.includes("accepted") ||
-value.includes("disbursed")
-)
 
-return "border-emerald-200 bg-emerald-50 text-emerald-700";
+        const rows =
+          allRows.map(
+            (loan) => [
 
+              loan.customer_name || "",
 
+              loan.mobile || "",
 
-if(
-value.includes("rejected") ||
-value.includes("failed")
-)
+              loan.lan || "",
 
-return "border-red-200 bg-red-50 text-red-700";
+              loan.partner_application_number || "",
 
+              loan.loan_amount ?? "",
 
+              loan.disbursal_amount ?? "",
 
-if(
-value.includes("pending") ||
-value.includes("processing")
-)
+              loan.disbursement_date
+                ? formatDate(
+                    loan.disbursement_date
+                  )
+                : "",
 
-return "border-amber-200 bg-amber-50 text-amber-700";
+              loan.status || ""
 
+            ]
+          );
 
 
-return "border-slate-300 bg-slate-100 text-slate-700";
+        const csvContent = [
 
+          headers
+            .map(
+              escapeCsvValue
+            )
+            .join(","),
 
-};
+          ...rows.map(
+            (row) =>
+              row
+                .map(
+                  escapeCsvValue
+                )
+                .join(",")
+          )
 
-const handleDocuments=(loan)=>{
+        ].join("\n");
 
-navigate(
-`/documents/${loan.lan}`
-);
 
-};
+        const blob =
+          new Blob(
+            [
+              "\uFEFF",
+              csvContent
+            ],
+            {
+              type:
+                "text/csv;charset=utf-8;"
+            }
+          );
 
-return (
 
+        const url =
+          URL.createObjectURL(
+            blob
+          );
 
-<div className="w-full">
 
+        const link =
+          document.createElement(
+            "a"
+          );
 
 
-<div
-className="
-overflow-hidden
-rounded-2xl
-border
-border-slate-200
-bg-white
-shadow-sm
-"
->
+        const currentDate =
+          new Date()
+            .toISOString()
+            .slice(0, 10);
 
 
+        link.href = url;
 
-<div
-className="
-flex
-flex-col
-gap-4
-border-b
-border-slate-100
-px-5
-py-5
-lg:flex-row
-lg:items-center
-lg:justify-between
-"
->
 
+        link.download =
+          `personal-loans-${currentDate}.csv`;
 
 
-<div
-className="
-flex
-items-center
-gap-3
-"
->
+        document.body.appendChild(
+          link
+        );
 
 
-<div
-className="
-flex
-h-10
-w-10
-items-center
-justify-center
-rounded-xl
-bg-emerald-500
-text-white
-"
->
+        link.click();
 
-<WalletCards size={20}/>
 
-</div>
+        document.body.removeChild(
+          link
+        );
 
 
+        URL.revokeObjectURL(
+          url
+        );
 
+      }
 
-<div>
+      catch (err) {
 
-<h1
-className="
-text-xl
-font-bold
-text-slate-950
-"
->
+        console.error(
+          "CSV export error:",
+          err
+        );
 
-Personal Loan All Loans
 
-</h1>
+        setError(
+          err.message ||
+          "Failed to export loans."
+        );
 
+      }
 
-<p
-className="
-text-xs
-text-slate-500
-"
->
+      finally {
 
-View all Personal Loan applications
+        setExporting(false);
 
-</p>
+      }
 
+    };
 
-</div>
 
+  return (
 
-</div>
+    <div className="w-full">
 
 
+      <div
+        className="
+          overflow-hidden
+          rounded-2xl
+          border
+          border-slate-200
+          bg-white
+          shadow-sm
+        "
+      >
 
 
+        <div
+          className="
+            flex
+            flex-col
+            gap-4
+            border-b
+            border-slate-100
+            px-5
+            py-5
+            lg:flex-row
+            lg:items-center
+            lg:justify-between
+          "
+        >
 
 
+          <div
+            className="
+              flex
+              items-center
+              gap-3
+            "
+          >
 
-<div
-className="
-flex
-flex-col
-gap-3
-sm:flex-row
-"
->
 
+            <div
+              className="
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-xl
+                bg-emerald-500
+                text-white
+              "
+            >
 
+              <WalletCards size={20} />
 
-<button
+            </div>
 
-className="
-flex
-items-center
-gap-2
-rounded-xl
-bg-slate-950
-px-4
-py-2
-text-sm
-font-semibold
-text-white
-hover:bg-slate-800
-"
 
->
+            <div>
 
-<Download size={15}/>
+              <h1
+                className="
+                  text-xl
+                  font-bold
+                  text-slate-950
+                "
+              >
 
-Export CSV
+                Personal Loan All Loans
 
-</button>
+              </h1>
 
 
+              <p
+                className="
+                  text-xs
+                  text-slate-500
+                "
+              >
 
+                View all Personal Loan applications
 
+              </p>
 
-<div className="relative">
+            </div>
 
+          </div>
 
-<Search
 
-size={16}
+          <div
+            className="
+              flex
+              flex-col
+              gap-3
+              sm:flex-row
+              sm:items-center
+            "
+          >
 
-className="
-absolute
-left-3
-top-1/2
--translate-y-1/2
-text-slate-400
-"
 
-/>
+            <button
 
+              type="button"
 
+              onClick={
+                handleExportCsv
+              }
 
-<input
+              disabled={
+                exporting
+              }
 
-value={search}
+              className="
+                flex
+                items-center
+                gap-2
+                rounded-xl
+                bg-slate-950
+                px-4
+                py-2
+                text-sm
+                font-semibold
+                text-white
+                transition
+                hover:bg-slate-800
+                disabled:cursor-not-allowed
+                disabled:opacity-60
+              "
 
-onChange={
-e=>setSearch(e.target.value)
-}
+            >
 
+              <Download size={15} />
 
-onKeyDown={
-e=>{
+              {
+                exporting
+                  ? "Exporting..."
+                  : "Export CSV"
+              }
 
-if(e.key==="Enter")
+            </button>
 
-handleSearch();
 
-}
+            <div className="relative">
 
-}
+              <Search
 
+                size={16}
 
-placeholder="Search LAN, name, mobile..."
+                className="
+                  absolute
+                  left-3
+                  top-1/2
+                  -translate-y-1/2
+                  text-slate-400
+                "
 
+              />
 
-className="
-h-10
-rounded-xl
-border
-border-slate-300
-pl-9
-pr-3
-text-sm
-outline-none
-focus:border-emerald-500
-"
 
-/>
+              <input
 
+                value={
+                  search
+                }
 
-</div>
+                onChange={
+                  (e) =>
+                    setSearch(
+                      e.target.value
+                    )
+                }
 
+                onKeyDown={
+                  (e) => {
 
+                    if (
+                      e.key === "Enter"
+                    ) {
 
+                      handleSearch();
 
-<div className="text-sm text-slate-600">
+                    }
 
+                  }
+                }
 
-<span className="font-bold">
+                placeholder="Search LAN, name, mobile..."
 
-{pagination.total || 0}
+                className="
+                  h-10
+                  rounded-xl
+                  border
+                  border-slate-300
+                  pl-9
+                  pr-3
+                  text-sm
+                  outline-none
+                  focus:border-emerald-500
+                "
 
-</span>
+              />
 
-{" "}Records
+            </div>
 
 
-</div>
+            <div className="text-sm text-slate-600">
 
+              <span className="font-bold">
 
+                {pagination.total || 0}
 
-</div>
+              </span>
 
+              {" "}
+              Records
 
+            </div>
 
-</div>
+          </div>
 
+        </div>
 
 
+        {
+          error &&
 
+          <div
+            className="
+              mx-5
+              mt-5
+              rounded-xl
+              bg-red-50
+              p-3
+              text-sm
+              text-red-700
+            "
+          >
 
+            {error}
 
-{
-error &&
+          </div>
+        }
 
-<div
-className="
-mx-5
-mt-5
-rounded-xl
-bg-red-50
-p-3
-text-sm
-text-red-700
-"
->
 
-{error}
+        <div
+          className="
+            m-5
+            overflow-x-auto
+            rounded-xl
+            border
+            border-slate-200
+          "
+        >
 
-</div>
 
-}
+          <table
+            className="
+              w-full
+              border-collapse
+            "
+          >
 
 
+            <thead>
 
+              <tr className="bg-slate-50">
 
+                {
+                  [
+                    "Customer Name",
+                    "LAN",
+                    "Partner ID",
+                    "Loan Amount",
+                    "Disbursement Amount",
+                    "Disbursement Date",
+                    "Status",
+                    "Action"
+                  ].map(
+                    (head) => (
 
-<div
-className="
-m-5
-overflow-x-auto
-rounded-xl
-border
-border-slate-200
-"
->
+                      <th
 
+                        key={
+                          head
+                        }
 
-<table
-className="
-w-full
-border-collapse
-"
->
+                        className="
+                          px-4
+                          py-4
+                          text-left
+                          text-[11px]
+                          font-bold
+                          uppercase
+                          tracking-wide
+                          text-slate-500
+                        "
 
+                      >
 
-<thead>
+                        {head}
 
+                      </th>
 
-<tr className="bg-slate-50">
+                    )
+                  )
+                }
 
+              </tr>
 
-{
-[
-"Customer Name",
-"LAN",
-"Partner ID",
-"Loan Amount",
-"Disbursement Amount",
-"Disbursement Date",
-"Status",
-"Action"
+            </thead>
 
-].map((head)=>(
 
+            <tbody>
 
-<th
+              {
+                loading
+                  ? (
 
-key={head}
+                    <tr>
 
-className="
-px-4
-py-4
-text-left
-text-[11px]
-font-bold
-uppercase
-tracking-wide
-text-slate-500
-"
+                      <td
 
->
+                        colSpan="8"
 
-{head}
+                        className="
+                          py-20
+                          text-center
+                          text-slate-500
+                        "
 
-</th>
+                      >
 
+                        Loading loans...
 
-))
+                      </td>
 
-}
+                    </tr>
 
+                  )
+                  : loans.length > 0
+                    ? (
 
-</tr>
+                      loans.map(
+                        (loan) => (
 
+                          <tr
 
-</thead>
+                            key={
+                              loan.id ||
+                              loan.lan
+                            }
 
+                            className="
+                              transition
+                              duration-200
+                              hover:bg-emerald-50/40
+                            "
 
+                          >
 
 
+                            <td className="px-4 py-4">
 
+                              <button
 
-<tbody>
+                                onClick={() =>
+                                  navigate(
+                                    `/loan-details/${loan.lan}`
+                                  )
+                                }
 
+                                className="
+                                  font-semibold
+                                  uppercase
+                                  text-slate-900
+                                  transition
+                                  hover:translate-x-1
+                                  hover:text-emerald-600
+                                "
 
-{
-loading ?
+                              >
 
+                                {
+                                  loan.customer_name ||
+                                  "—"
+                                }
 
-<tr>
+                              </button>
 
-<td
-colSpan="8"
 
-className="
-py-20
-text-center
-text-slate-500
-"
->
+                              <p
+                                className="
+                                  text-xs
+                                  text-slate-400
+                                "
+                              >
 
-Loading loans...
+                                {
+                                  loan.mobile ||
+                                  "—"
+                                }
 
-</td>
+                              </p>
 
-</tr>
+                            </td>
 
 
+                            <td className="px-4 py-4">
 
-:
+                              <button
 
+                                onClick={() =>
+                                  navigate(
+                                    `/customer-details/${loan.lan}`
+                                  )
+                                }
 
-loans.map((loan)=>(
+                                className="
+                                  rounded-md
+                                  border
+                                  border-slate-200
+                                  bg-slate-50
+                                  px-3
+                                  py-1
+                                  font-mono
+                                  text-xs
+                                  transition
+                                  hover:border-emerald-400
+                                  hover:bg-emerald-50
+                                  hover:text-emerald-700
+                                "
 
+                              >
 
-<tr
+                                {
+                                  loan.lan ||
+                                  "—"
+                                }
 
-key={
-loan.id || loan.lan
-}
+                              </button>
 
-className="
-transition
-duration-200
-hover:bg-emerald-50/40
-"
+                            </td>
 
->
 
+                            <td className="px-4 py-4 text-xs">
 
-<td className="px-4 py-4">
+                              {
+                                loan.partner_application_number ||
+                                "—"
+                              }
 
+                            </td>
 
-<button
 
-onClick={()=>navigate(
-`/loan-details/${loan.lan}`
-)}
+                            <td className="px-4 py-4 font-semibold">
 
-className="
-font-semibold
-uppercase
-text-slate-900
-transition
-hover:translate-x-1
-hover:text-emerald-600
-"
+                              {
+                                formatMoney(
+                                  loan.loan_amount
+                                )
+                              }
 
->
+                            </td>
 
-{loan.customer_name || "—"}
 
-</button>
+                            <td className="px-4 py-4 font-bold">
 
+                              {
+                                formatMoney(
+                                  loan.disbursal_amount
+                                )
+                              }
 
-<p
-className="
-text-xs
-text-slate-400
-"
->
+                            </td>
 
-{loan.mobile}
 
-</p>
+                            <td className="px-4 py-4">
 
+                              {
+                                formatDate(
+                                  loan.disbursement_date
+                                )
+                              }
 
-</td>
+                            </td>
 
 
+                            <td className="px-4 py-4">
 
+                              <span
 
+                                className={`
+                                  rounded-lg
+                                  border
+                                  px-3
+                                  py-1
+                                  text-[10px]
+                                  font-bold
+                                  ${getStatusStyle(
+                                    loan.status
+                                  )}
+                                `}
 
+                              >
 
+                                {
+                                  loan.status ||
+                                  "—"
+                                }
 
-<td className="px-4 py-4">
+                              </span>
 
+                            </td>
 
-<button
 
-onClick={()=>navigate(
-`/customer-details/${loan.lan}`
-)}
+                            <td className="px-4 py-4">
 
-className="
-rounded-md
-border
-border-slate-200
-bg-slate-50
-px-3
-py-1
-font-mono
-text-xs
-transition
-hover:border-emerald-400
-hover:bg-emerald-50
-hover:text-emerald-700
-"
+                              <button
 
->
+                                onClick={() =>
+                                  handleDocuments(
+                                    loan
+                                  )
+                                }
 
-{loan.lan}
+                                className="
+                                  flex
+                                  items-center
+                                  gap-2
+                                  rounded-lg
+                                  border
+                                  border-emerald-200
+                                  bg-emerald-50
+                                  px-3
+                                  py-2
+                                  text-xs
+                                  font-semibold
+                                  text-emerald-700
+                                  transition
+                                  hover:bg-emerald-100
+                                "
 
-</button>
+                              >
 
+                                <FileText size={14} />
 
-</td>
+                                Documents
 
+                              </button>
 
+                            </td>
 
 
+                          </tr>
 
+                        )
+                      )
 
+                    )
+                    : (
 
-<td className="px-4 py-4 text-xs">
+                      <tr>
 
+                        <td
 
-{loan.partner_application_number || "—"}
+                          colSpan="8"
 
+                          className="
+                            py-20
+                            text-center
+                            text-slate-500
+                          "
 
-</td>
+                        >
 
+                          No loans found.
 
+                        </td>
 
+                      </tr>
 
+                    )
+              }
 
+            </tbody>
 
+          </table>
 
-<td className="px-4 py-4 font-semibold">
+        </div>
 
-{formatMoney(
-loan.loan_amount
-)}
 
-</td>
+        <div
+          className="
+            flex
+            justify-center
+            gap-3
+            p-4
+          "
+        >
 
 
+          <button
 
+            disabled={
+              page <= 1
+            }
 
+            onClick={() =>
+              setPage(
+                page - 1
+              )
+            }
 
+            className="
+              rounded-lg
+              border
+              px-3
+              py-2
+              disabled:opacity-40
+            "
 
-<td className="px-4 py-4 font-bold">
+          >
 
-{formatMoney(
-loan.disbursal_amount
-)}
+            <ChevronLeft size={16} />
 
-</td>
+          </button>
 
 
+          <div
+            className="
+              rounded-lg
+              bg-emerald-500
+              px-4
+              py-2
+              text-white
+            "
+          >
 
+            {page}
 
+          </div>
 
 
-<td className="px-4 py-4">
+          <button
 
-{formatDate(
-loan.disbursement_date
-)}
+            disabled={
+              page >=
+              pagination.totalPages
+            }
 
-</td>
+            onClick={() =>
+              setPage(
+                page + 1
+              )
+            }
 
+            className="
+              rounded-lg
+              border
+              px-3
+              py-2
+              disabled:opacity-40
+            "
 
+          >
 
+            <ChevronRight size={16} />
 
+          </button>
 
 
-<td className="px-4 py-4">
+        </div>
 
 
-<span
+      </div>
 
-className={`
-rounded-lg
-border
-px-3
-py-1
-text-[10px]
-font-bold
-${getStatusStyle(
-loan.status
-)}
-`}
 
->
+    </div>
 
-{loan.status || "—"}
-
-</span>
-
-
-</td>
-
-
-
-
-
-
-<td className="px-4 py-4">
-
-
-<button
-
-onClick={()=>handleDocuments(loan)}
-
-className="
-flex
-items-center
-gap-2
-rounded-lg
-border
-border-emerald-200
-bg-emerald-50
-px-3
-py-2
-text-xs
-font-semibold
-text-emerald-700
-transition
-hover:bg-emerald-100
-"
-
->
-
-<FileText size={14}/>
-
-Documents
-
-
-</button>
-
-
-</td>
-
-
-
-
-
-
-</tr>
-
-
-))
-
-
-}
-
-
-
-</tbody>
-
-
-</table>
-
-
-</div>
-
-
-
-
-
-
-
-<div
-className="
-flex
-justify-center
-gap-3
-p-4
-"
->
-
-
-
-<button
-
-disabled={page<=1}
-
-onClick={()=>setPage(page-1)}
-
-className="
-rounded-lg
-border
-px-3
-py-2
-disabled:opacity-40
-"
-
->
-
-<ChevronLeft size={16}/>
-
-</button>
-
-
-
-
-<div
-className="
-rounded-lg
-bg-emerald-500
-px-4
-py-2
-text-white
-"
->
-
-{page}
-
-</div>
-
-
-
-
-<button
-
-disabled={
-page>=pagination.totalPages
-}
-
-onClick={()=>setPage(page+1)}
-
-className="
-rounded-lg
-border
-px-3
-py-2
-disabled:opacity-40
-"
-
->
-
-<ChevronRight size={16}/>
-
-</button>
-
-
-
-</div>
-
-
-
-
-
-</div>
-
-
-</div>
-
-
-);
-
+  );
 
 }
 

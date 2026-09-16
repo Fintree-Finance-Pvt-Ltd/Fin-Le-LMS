@@ -5,6 +5,12 @@ const path = require("path");
 const db = require("../../../config/db");
 const { runPlPartnerBre } = require("./PartnerBre");
 const getService = require("./partnerGetService");
+
+async function queryDB(sql, params = []) {
+  const [rows] = await db.query(sql, params);
+  return rows;
+}
+
 const {
   query,
   apiError,
@@ -3932,8 +3938,7 @@ async function getAllPersonalLoans({
     ${whereSql}
   `;
 
-  const countRows =
-    await queryDB(
+  const [countRows] = await db.query(
       countSql,
       filterParams
     );
@@ -4002,8 +4007,8 @@ async function getAllPersonalLoans({
     OFFSET ?
   `;
 
-  const rows =
-    await queryDB(
+  const [rows] =
+    await db.query(
       loansSql,
       [
         ...filterParams,

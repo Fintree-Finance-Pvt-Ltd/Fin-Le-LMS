@@ -128,15 +128,15 @@ app.use(
 
 // TEMP AUTH DEBUG
 app.use((req, res, next) => {
-  if (req.originalUrl.startsWith("/api/auth")) {
-    console.log("\n===== AUTH DEBUG =====");
-    console.log("METHOD:", req.method);
-    console.log("URL:", req.originalUrl);
-    console.log("SESSION ID:", req.sessionID);
-    console.log("SESSION:", req.session);
-    console.log("COOKIE HEADER:", req.headers.cookie);
-    console.log("======================\n");
-  }
+  // if (req.originalUrl.startsWith("/api/auth")) {
+  //   console.log("\n===== AUTH DEBUG =====");
+  //   console.log("METHOD:", req.method);
+  //   console.log("URL:", req.originalUrl);
+  //   console.log("SESSION ID:", req.sessionID);
+  //   console.log("SESSION:", req.session);
+  //   console.log("COOKIE HEADER:", req.headers.cookie);
+  //   console.log("======================\n");
+  // }
 
   next();
 });

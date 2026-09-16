@@ -2,7 +2,18 @@ const express = require("express");
 const router = express.Router();
 
 const verifyPartnerApiKey = require("../middleware/PartnerServiceApiKey");
-const service = require("../services/plPartnerService");
+const partnerService = require("../services/plPartnerService");
+const loanService = require("../services/partnerLoanService");
+const getService = require("../services/partnerGetService");
+const {
+  executeIdempotent,
+} = require("../services/partnerIdempotencyService");
+const {
+  validateRepaymentPayload,
+  validateExtraChargePayload,
+  validateWaiverPayload,
+  validateDisbursementUtrPayload,
+} = require("../validation/partnerValidation");
 
 router.use(verifyPartnerApiKey);
 
@@ -64,7 +75,7 @@ function handleError(res, req, error) {
 */
 async function runIdempotent(req, res, operation, successStatus = 200) {
   try {
-    const result = await service.executeIdempotent({
+    const result = await executeIdempotent({
       idempotencyKey: req.headers["idempotency-key"],
       method: req.method,
       endpoint: `${req.baseUrl}${req.route.path}`,
@@ -140,7 +151,7 @@ router.post("/application", async (req, res) => {
   return runIdempotent(
     req,
     res,
-    () => service.createApplication(req.body),
+    () => partnerService.createApplication(req.body),
     201,
   );
 });
@@ -193,7 +204,7 @@ router.post(
       req,
       res,
       async () => {
-        const data = await service.saveConsent(
+        const data = await partnerService.saveConsent(
           req.params.partnerApplicationId,
           req.body,
         );
@@ -258,7 +269,7 @@ router.put(
       req,
       res,
       async () => {
-        const data = await service.updateProfile(
+        const data = await partnerService.updateProfile(
           req.params.partnerApplicationId,
           req.body,
         );
@@ -315,7 +326,7 @@ router.post(
       req,
       res,
       async () => {
-        const data = await service.saveDocument(
+        const data = await partnerService.saveDocument(
           req.params.partnerApplicationId,
           req.body,
         );
@@ -381,7 +392,7 @@ router.post(
       req,
       res,
       async () => {
-        const data = await service.requestDecision(
+        const data = await partnerService.requestDecision(
           req.params.partnerApplicationId,
           req.body,
           version,
@@ -444,7 +455,7 @@ router.post(
       req,
       res,
       async () => {
-        const data = await service.requestDisbursal(
+        const data = await loanService.requestDisbursal(
           req.params.partnerApplicationId,
           req.body,
         );
@@ -477,12 +488,12 @@ router.post(
   async (req, res) => {
     try {
       const payload =
-        service.validateRepaymentPayload(
+        validateRepaymentPayload(
           req.body
         );
 
       const data =
-        await service.recordRepayment(
+        await loanService.recordRepayment(
           req.params.partnerApplicationId,
           payload
         );
@@ -515,12 +526,12 @@ router.post(
   async (req, res) => {
     try {
       const payload =
-        service.validateExtraChargePayload(
+        validateExtraChargePayload(
           req.body
         );
 
       const data =
-        await service.addExtraCharge(
+        await loanService.addExtraCharge(
           req.params.partnerApplicationId,
           payload
         );
@@ -553,12 +564,12 @@ router.post(
   async (req, res) => {
     try {
       const payload =
-        service.validateWaiverPayload(
+        validateWaiverPayload(
           req.body
         );
 
       const data =
-        await service.waiveExtraCharge(
+        await loanService.waiveExtraCharge(
           req.params.partnerApplicationId,
           payload
         );
@@ -591,12 +602,12 @@ router.post(
   async (req, res) => {
     try {
       const payload =
-        service.validateDisbursementUtrPayload(
+        validateDisbursementUtrPayload(
           req.body
         );
 
       const data =
-        await service.recordDisbursementUtr(
+        await loanService.recordDisbursementUtr(
           req.params.partnerApplicationId,
           payload
         );

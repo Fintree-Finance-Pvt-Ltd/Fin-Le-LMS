@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const db = require("../../../config/db");
 
 /*
  * IMPORTANT:
@@ -115,6 +116,71 @@ function hashApiKey(apiKey) {
     .digest("hex");
 }
 
+function query(sql, values = []) {
+  return db.query(sql, values);
+}
+
+async function queryDB(sql, params = []) {
+  const [rows] = await db.query(sql, params);
+  return rows;
+}
+
+function apiError(statusCode, code, message) {
+  const error = new Error(message);
+
+  error.statusCode = statusCode;
+  error.code = code;
+
+  return error;
+}
+
+function assertApplicationIdentity(application, payload) {
+  if (!application) {
+    throw apiError(404, "APPLICATION_NOT_FOUND", "Application not found");
+  }
+
+  const dbLan = String(application.lan || "").trim().toUpperCase();
+  const requestLan = String(payload.lan || "").trim().toUpperCase();
+
+  if (dbLan !== requestLan) {
+    throw apiError(409, "APPLICATION_IDENTITY_MISMATCH", "lan does not match the application");
+  }
+
+  const dbReference = String(application.external_application_reference || "").trim();
+  const requestReference = String(payload.externalApplicationReference || "").trim();
+
+  if (dbReference !== requestReference) {
+    throw apiError(
+      409,
+      "APPLICATION_IDENTITY_MISMATCH",
+      "externalApplicationReference does not match the application",
+    );
+  }
+}
+
+function makeHash(data) {
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify(data || {}))
+    .digest("hex");
+}
+
+function getClientId() {
+  return Number(process.env.PARTNER_INTERNAL_CLIENT_ID || 1);
+}
+
+async function getApplication(partnerApplicationId) {
+  const [rows] = await query(
+    `SELECT *
+     FROM pl_partner_applications
+     WHERE partner_application_id = ?
+     LIMIT 1`,
+    [partnerApplicationId],
+  );
+
+  return rows[0] || null;
+}
+
 function isUuidV4(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     String(value || ""),
@@ -161,4 +227,11 @@ module.exports = {
   dateToIso,
   hashApiKey,
   hasMeaningfulObjectData,
+  query,
+  queryDB,
+  apiError,
+  assertApplicationIdentity,
+  makeHash,
+  getClientId,
+  getApplication,
 };

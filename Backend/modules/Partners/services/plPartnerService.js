@@ -1,10 +1,17 @@
-const axios = require("axios");
 const crypto = require("crypto");
+
 const fs = require("fs");
 const path = require("path");
 const db = require("../../../config/db");
 const { runPlPartnerBre } = require("./PartnerBre");
-const { POLICY } = require("./PartnerPolicy");
+const getService = require("./partnerGetService");
+const {
+  query,
+  apiError,
+  makeHash,
+  getClientId,
+  getApplication,
+} = require("../utils/partnerUtils");
 
 /*
  * Partner-submitted documents (POST .../docs) are decoded from base64 and
@@ -44,12 +51,6 @@ function buildPartnerDocumentFileName(
  * Provider statuses that mean the money has actually left. Anything else is
  * still in flight and gets completed by the disbursal webhook instead.
  */
-const FINAL_PAYOUT_STATUSES = [
-  "success",
-  "completed",
-  "processed",
-];
-
 function normalizeProductCode(value) {
   const code = String(value || "")
     .trim()
@@ -72,256 +73,6 @@ function normalizeProductCode(value) {
 /*
 |--------------------------------------------------------------------------
 | COMMON QUERY
-|--------------------------------------------------------------------------
-*/
-function query(sql, values = []) {
-  return db.query(sql, values);
-}
-
-async function queryDB(sql, params = []) {
-  const [rows] =
-    await db.query(
-      sql,
-      params
-    );
-
-  return rows;
-}
-
-/*
-|--------------------------------------------------------------------------
-| ERROR HELPER
-|--------------------------------------------------------------------------
-*/
-function apiError(statusCode, code, message) {
-  const error = new Error(message);
-
-  error.statusCode = statusCode;
-  error.code = code;
-
-  return error;
-}
-
-function requireObject(input, name = "body") {
-  if (
-    !input ||
-    typeof input !== "object" ||
-    Array.isArray(input)
-  ) {
-    throw apiError(
-      400,
-      "VALIDATION_ERROR",
-      `${name} must be an object`
-    );
-  }
-
-  return input;
-}
-
-function requiredString(
-  value,
-  field,
-  maxLength = 255
-) {
-  if (
-    value === undefined ||
-    value === null ||
-    String(value).trim() === ""
-  ) {
-    throw apiError(
-      400,
-      "VALIDATION_ERROR",
-      `${field} is required`
-    );
-  }
-
-  const text = String(value).trim();
-
-  if (text.length > maxLength) {
-    throw apiError(
-      400,
-      "VALIDATION_ERROR",
-      `${field} must not exceed ${maxLength} characters`
-    );
-  }
-
-  return text;
-}
-
-function optionalString(
-  value,
-  field,
-  maxLength = 255
-) {
-  if (
-    value === undefined ||
-    value === null ||
-    String(value).trim() === ""
-  ) {
-    return null;
-  }
-
-  const text = String(value).trim();
-
-  if (text.length > maxLength) {
-    throw apiError(
-      400,
-      "VALIDATION_ERROR",
-      `${field} must not exceed ${maxLength} characters`
-    );
-  }
-
-  return text;
-}
-
-function requireDate(value, field) {
-  const text =
-    requiredString(
-      value,
-      field,
-      10
-    );
-
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(text)
-  ) {
-    throw apiError(
-      400,
-      "VALIDATION_ERROR",
-      `${field} must be YYYY-MM-DD`
-    );
-  }
-
-  const [year, month, day] =
-    text.split("-").map(Number);
-
-  const date =
-    new Date(
-      Date.UTC(
-        year,
-        month - 1,
-        day
-      )
-    );
-
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day
-  ) {
-    throw apiError(
-      400,
-      "VALIDATION_ERROR",
-      `${field} is not a valid date`
-    );
-  }
-
-  return text;
-}
-
-function assertApplicationIdentity(
-  application,
-  payload
-) {
-  if (!application) {
-    throw apiError(
-      404,
-      "APPLICATION_NOT_FOUND",
-      "Application not found"
-    );
-  }
-
-  const dbLan =
-    String(application.lan || "")
-      .trim()
-      .toUpperCase();
-
-  const requestLan =
-    String(payload.lan || "")
-      .trim()
-      .toUpperCase();
-
-  if (dbLan !== requestLan) {
-    throw apiError(
-      409,
-      "APPLICATION_IDENTITY_MISMATCH",
-      "lan does not match the application"
-    );
-  }
-
-  const dbReference =
-    String(
-      application.external_application_reference ||
-      ""
-    ).trim();
-
-  const requestReference =
-    String(
-      payload.externalApplicationReference ||
-      ""
-    ).trim();
-
-  if (
-    dbReference !== requestReference
-  ) {
-    throw apiError(
-      409,
-      "APPLICATION_IDENTITY_MISMATCH",
-      "externalApplicationReference does not match the application"
-    );
-  }
-}
-
-/*
-|--------------------------------------------------------------------------
-| REQUEST HASH
-|--------------------------------------------------------------------------
-*/
-function makeHash(data) {
-  return crypto
-    .createHash("sha256")
-    .update(JSON.stringify(data || {}))
-    .digest("hex");
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| INTERNAL CLIENT ID
-|--------------------------------------------------------------------------
-|
-| client_id is only for your internal DB.
-| PLP does NOT send X-Client-Id.
-|
-*/
-function getClientId() {
-  return Number(
-    process.env.PARTNER_INTERNAL_CLIENT_ID || 1,
-  );
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| GET APPLICATION
-|--------------------------------------------------------------------------
-*/
-async function getApplication(partnerApplicationId) {
-  const [rows] = await query(
-    `SELECT *
-     FROM pl_partner_applications
-     WHERE partner_application_id = ?
-     LIMIT 1`,
-    [partnerApplicationId],
-  );
-
-  return rows[0] || null;
-}
-
-
-/*
-|--------------------------------------------------------------------------
-| 1. CREATE APPLICATION
 |--------------------------------------------------------------------------
 */
 async function createApplication(body) {
@@ -1751,13 +1502,6 @@ async function requestDecision(
 | the money moved either way, so it just returns what already exists.
 |
 */
-async function recordPlPartnerDisbursement({
-  lan,
-  disbursementUtr,
-  disbursementDate,
-}) {
-  const connection =
-    await db.getConnection();
 
   try {
     await connection.beginTransaction();

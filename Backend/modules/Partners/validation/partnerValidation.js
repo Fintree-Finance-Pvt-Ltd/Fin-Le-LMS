@@ -3,6 +3,7 @@ const {
   hasValue,
   hasMeaningfulObjectData,
   isUuidV4,
+  apiError,
 } = require("../utils/partnerUtils");
 
 function requireObject(value, field) {
@@ -549,3 +550,337 @@ module.exports = {
   validateTriggerDisbursal,
   validateIdempotencyKey,
 };
+
+function legacyRequireObject(input, name = "body") {
+  if (
+    !input ||
+    typeof input !== "object" ||
+    Array.isArray(input)
+  ) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      `${name} must be an object`
+    );
+  }
+
+  return input;
+}
+
+function legacyRequiredString(
+  value,
+  field,
+  maxLength = 255
+) {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      `${field} is required`
+    );
+  }
+
+  const text = String(value).trim();
+
+  if (text.length > maxLength) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      `${field} must not exceed ${maxLength} characters`
+    );
+  }
+
+  return text;
+}
+
+function legacyOptionalString(
+  value,
+  field,
+  maxLength = 255
+) {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const text = String(value).trim();
+
+  if (text.length > maxLength) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      `${field} must not exceed ${maxLength} characters`
+    );
+  }
+
+  return text;
+}
+
+function legacyRequireDate(value, field) {
+  const text =
+    legacyRequiredString(
+      value,
+      field,
+      10
+    );
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(text)
+  ) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      `${field} must be YYYY-MM-DD`
+    );
+  }
+
+  const [year, month, day] =
+    text.split("-").map(Number);
+
+  const date =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day
+      )
+    );
+
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
+  ) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      `${field} is not a valid date`
+    );
+  }
+
+  return text;
+}
+
+
+const validateRepaymentPayload = (input) => {
+  const body = legacyRequireObject(input, "body");
+
+  const amount = legacyRequiredString(body.amount, "amount", 30);
+
+  if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(amount) || Number(amount) <= 0) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      "amount must be a valid positive number.",
+      {
+        field: "amount",
+      }
+    );
+  }
+
+  const paymentId = legacyRequiredString(body.paymentId, "paymentId", 100);
+
+  return {
+    externalApplicationReference:
+      legacyRequiredString(
+        body.externalApplicationReference,
+        "externalApplicationReference",
+        100
+      ),
+
+    lan: legacyRequiredString(
+      body.lan,
+      "lan",
+      50
+    ),
+
+    amount,
+
+    paymentDate:
+      legacyRequireDate(
+        body.paymentDate,
+        "paymentDate"
+      ),
+
+    paymentId,
+
+    paymentMode:
+      legacyOptionalString(
+        body.paymentMode,
+        "paymentMode",
+        50
+      ) || "API",
+
+    utr:
+      legacyOptionalString(
+        body.utr,
+        "utr",
+        100
+      ) || paymentId,
+  };
+};
+
+/*
+|--------------------------------------------------------------------------
+| Extra Charges
+|--------------------------------------------------------------------------
+*/
+
+const validateExtraChargePayload = (input) => {
+  const body = legacyRequireObject(input, "body");
+
+  const amount = legacyRequiredString(body.amount, "amount", 30);
+
+  if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(amount) || Number(amount) <= 0) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      "amount must be a valid positive number.",
+      {
+        field: "amount",
+      }
+    );
+  }
+
+  return {
+    externalApplicationReference:
+      legacyRequiredString(
+        body.externalApplicationReference,
+        "externalApplicationReference",
+        100
+      ),
+
+    lan: legacyRequiredString(
+      body.lan,
+      "lan",
+      50
+    ),
+
+    chargeType:
+      legacyRequiredString(
+        body.chargeType,
+        "chargeType",
+        100
+      ),
+
+    amount,
+
+    dueDate:
+      legacyRequireDate(
+        body.dueDate,
+        "dueDate"
+      ),
+
+    remarks:
+      legacyOptionalString(
+        body.remarks,
+        "remarks",
+        255
+      ),
+  };
+};
+
+/*
+|--------------------------------------------------------------------------
+| WAIVER
+|--------------------------------------------------------------------------
+*/
+
+const validateWaiverPayload = (input) => {
+  const body = legacyRequireObject(input, "body");
+
+  const waiverAmount = legacyRequiredString(body.waiverAmount, "waiverAmount", 30);
+
+  if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(waiverAmount) || Number(waiverAmount) <= 0) {
+    throw apiError(
+      400,
+      "VALIDATION_ERROR",
+      "waiverAmount must be a valid positive number.",
+      {
+        field: "waiverAmount",
+      }
+    );
+  }
+
+  return {
+    externalApplicationReference:
+      legacyRequiredString(
+        body.externalApplicationReference,
+        "externalApplicationReference",
+        100
+      ),
+
+    lan: legacyRequiredString(
+      body.lan,
+      "lan",
+      50
+    ),
+
+    chargeType:
+      legacyRequiredString(
+        body.chargeType,
+        "chargeType",
+        100
+      ),
+
+    waiverAmount,
+  };
+};
+
+/*
+|--------------------------------------------------------------------------
+| DISBURSEMENT UTR
+|--------------------------------------------------------------------------
+*/
+
+const validateDisbursementUtrPayload = (input) => {
+  const body = legacyRequireObject(input, "body");
+
+  return {
+    externalApplicationReference:
+      legacyRequiredString(
+        body.externalApplicationReference,
+        "externalApplicationReference",
+        100
+      ),
+
+    lan:
+      legacyRequiredString(
+        body.lan,
+        "lan",
+        50
+      ),
+
+    disbursementUtr:
+      legacyRequiredString(
+        body.disbursementUtr,
+        "disbursementUtr",
+        50
+      ),
+
+    disbursementDate:
+      legacyRequireDate(
+        body.disbursementDate,
+        "disbursementDate"
+      ),
+  };
+};
+
+Object.assign(module.exports, {
+  validateRepaymentPayload,
+  validateExtraChargePayload,
+  validateWaiverPayload,
+  validateDisbursementUtrPayload,
+});
+/*
+|--------------------------------------------------------------------------
+| RECORD DISBURSEMENT UTR
+|--------------------------------------------------------------------------
+*/

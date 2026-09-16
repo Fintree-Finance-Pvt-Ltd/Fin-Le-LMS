@@ -40,6 +40,10 @@ const app = express();
  */
 app.set("trust proxy", 1);
 
+const isProduction =
+  process.env.DEPLOYMENT_ENV === "production" ||
+  process.env.DEPLOYMENT_ENV === "uat";
+
 
 // ======================================================
 // MIDDLEWARE
@@ -112,20 +116,30 @@ app.use(
 
     cookie: {
       httpOnly: true,
-      /*
-       * "auto" asks express-session to check the actual connection
-       * (req.secure, which respects the trust-proxy setting above) instead
-       * of guessing from an env var — DEPLOYMENT_ENV is set to "uat" even
-       * for local dev over plain HTTP, so a static true/false here either
-       * breaks local login (cookie never sent back over HTTP) or leaves
-       * the deployed site without the Secure flag.
-       */
-      secure: "auto",
+
+      secure: isProduction,
+
       sameSite: "lax",
+
       maxAge: 1000 * 60 * 60 * 24,
     },
   })
 );
+
+// TEMP AUTH DEBUG
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith("/api/auth")) {
+    console.log("\n===== AUTH DEBUG =====");
+    console.log("METHOD:", req.method);
+    console.log("URL:", req.originalUrl);
+    console.log("SESSION ID:", req.sessionID);
+    console.log("SESSION:", req.session);
+    console.log("COOKIE HEADER:", req.headers.cookie);
+    console.log("======================\n");
+  }
+
+  next();
+});
 
 // app.use(apiAuditMiddleware);
 

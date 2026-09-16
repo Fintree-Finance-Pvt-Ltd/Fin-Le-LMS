@@ -1502,6 +1502,13 @@ async function requestDecision(
 | the money moved either way, so it just returns what already exists.
 |
 */
+async function recordPlPartnerDisbursement({
+  lan,
+  disbursementUtr,
+  disbursementDate,
+}) {
+  const connection =
+    await db.getConnection();
 
   try {
     await connection.beginTransaction();

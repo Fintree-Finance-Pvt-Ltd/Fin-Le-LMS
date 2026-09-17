@@ -44,6 +44,9 @@ const isProduction =
   process.env.DEPLOYMENT_ENV === "production" ||
   process.env.DEPLOYMENT_ENV === "uat";
 
+// const isProduction =
+//   process.env.NODE_ENV === "production";
+
 
 // ======================================================
 // MIDDLEWARE
@@ -107,26 +110,68 @@ app.use(
 );
 
 
+// app.use(
+//   session({
+//     secret: process.env.SESSION_SECRET,
+
+//     resave: false,
+//     saveUninitialized: false,
+
+//     cookie: {
+//       httpOnly: true,
+
+//       secure: isProduction,
+
+//       sameSite: "lax",
+
+//       maxAge: 1000 * 60 * 60 * 24,
+//     },
+//   })
+// );
+
+// TEMP AUTH DEBUG
+
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
 
-    resave: false,
-    saveUninitialized: false,
+    secret:
+      process.env.SESSION_SECRET,
 
-    cookie: {
-      httpOnly: true,
 
-      secure: isProduction,
+    resave:false,
 
-      sameSite: "lax",
 
-      maxAge: 1000 * 60 * 60 * 24,
+    saveUninitialized:false,
+
+
+    cookie:{
+
+
+      httpOnly:true,
+
+
+      secure:isProduction,
+
+
+      sameSite:
+        isProduction
+          ? "none"
+          : "lax",
+
+
+      maxAge:
+        1000 *
+        60 *
+        60 *
+        24,
+
+
     },
+
+
   })
 );
 
-// TEMP AUTH DEBUG
 app.use((req, res, next) => {
   // if (req.originalUrl.startsWith("/api/auth")) {
   //   console.log("\n===== AUTH DEBUG =====");

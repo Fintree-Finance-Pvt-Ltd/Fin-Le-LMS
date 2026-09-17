@@ -23,3 +23,34 @@ body {
 #root {
   min-height: 100vh;
 }
+
+@keyframes toastSlideIn {
+
+  from {
+
+    opacity:0;
+
+    transform:
+    translateX(120px);
+
+  }
+
+
+  to {
+
+    opacity:1;
+
+    transform:
+    translateX(0);
+
+  }
+
+}
+
+
+.react-hot-toast {
+
+  animation:
+  toastSlideIn 0.35s ease-out;
+
+}

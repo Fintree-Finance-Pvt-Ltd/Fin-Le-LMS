@@ -14,6 +14,7 @@ import DisbursementDetails from "./components/DisbursementDetails";
 import DisbursedLoans from "./components/DisbursedLoans";
 import CustomerDetails from "./components/CustomerDetails";
 
+
 // Auth
 import RequireAuth from "./components/auth/RequireAuth";
 import RequirePermission from "./components/auth/RequirePermission";
@@ -45,308 +46,345 @@ import UserDashboard from "./pages/user/UserDashboard";
 import Unauthorized from "./pages/Unauthorized";
 
 
+// Common
+import GlobalLoader from "./components/common/GlobalLoader";
+
+
+
 function App() {
+
+
   return (
-    <Routes>
 
-      {/* ======================================================
-          DEFAULT
-      ====================================================== */}
-
-      <Route
-        path="/"
-        element={
-          <RoleRedirect />
-        }
-      />
+    <>
 
 
-      {/* ======================================================
-          PUBLIC ROUTES
-      ====================================================== */}
+      {/* GLOBAL LOADER */}
 
-      <Route
-        path="/login"
-        element={
-          <Login />
-        }
-      />
+      <GlobalLoader />
 
 
-      <Route
-        path="/forgot-password"
-        element={
-          <ForgotPassword />
-        }
-      />
+
+      <Routes>
 
 
-      <Route
-        path="/unauthorized"
-        element={
-          <Unauthorized />
-        }
-      />
+        {/* ==============================
+            DEFAULT
+        =============================== */}
 
-
-      {/* ======================================================
-          AUTHENTICATED DASHBOARD ROUTES
-      ====================================================== */}
-
-      <Route
-        element={
-          <RequireAuth>
-            <DashboardLayout />
-          </RequireAuth>
-        }
-      >
-
-        {/* ====================================================
-            MIS REPORTS
-        ==================================================== */}
 
         <Route
-          path="mis-reports"
+          path="/"
           element={
-            <Navigate
-              to="/mis-reports/listing"
-              replace
-            />
+            <RoleRedirect />
           }
         />
 
 
+
+        {/* ==============================
+            PUBLIC ROUTES
+        =============================== */}
+
+
         <Route
-          path="mis-reports/listing"
+          path="/login"
           element={
-            <ReportsListing />
+            <Login />
           }
         />
 
 
+
         <Route
-          path="mis-reports/:reportId"
+          path="/forgot-password"
           element={
-            <ReportLayout />
+            <ForgotPassword />
+          }
+        />
+
+
+
+        <Route
+          path="/unauthorized"
+          element={
+            <Unauthorized />
+          }
+        />
+
+
+
+
+        {/* ==============================
+            AUTHENTICATED ROUTES
+        =============================== */}
+
+
+        <Route
+          element={
+            <RequireAuth>
+
+              <DashboardLayout />
+
+            </RequireAuth>
           }
         >
 
-          {/* Default report screen -> Trigger */}
+
+
+          {/* ============================
+              MIS REPORTS
+          ============================= */}
+
 
           <Route
-            index
+            path="mis-reports"
             element={
               <Navigate
-                to="trigger"
+                to="/mis-reports/listing"
                 replace
               />
             }
           />
 
 
-          {/* Trigger Report */}
 
           <Route
-            path="trigger"
+            path="mis-reports/listing"
             element={
-              <TriggerReportForm />
+              <ReportsListing />
             }
           />
 
 
-          {/* Downloaded Reports */}
 
           <Route
-            path="downloads"
+            path="mis-reports/:reportId"
             element={
-              <DownloadedReports />
+              <ReportLayout />
+            }
+          >
+
+
+            <Route
+              index
+              element={
+                <Navigate
+                  to="trigger"
+                  replace
+                />
+              }
+            />
+
+
+
+            <Route
+              path="trigger"
+              element={
+                <TriggerReportForm />
+              }
+            />
+
+
+
+            <Route
+              path="downloads"
+              element={
+                <DownloadedReports />
+              }
+            />
+
+
+          </Route>
+
+
+
+
+
+          {/* ============================
+              DASHBOARDS
+          ============================= */}
+
+
+
+          <Route
+            path="portfolio"
+            element={
+              <PortfolioDashboard />
             }
           />
+
+
+
+          <Route
+            path="admin/dashboard"
+            element={
+              <RequirePermission permission="admin.dashboard">
+
+                <AdminDashboard />
+
+              </RequirePermission>
+            }
+          />
+
+
+
+          <Route
+            path="operations/dashboard"
+            element={
+              <RequirePermission permission="operations.dashboard">
+
+                <OperationsDashboard />
+
+              </RequirePermission>
+            }
+          />
+
+
+
+          <Route
+            path="credit/dashboard"
+            element={
+              <RequirePermission permission="credit.dashboard">
+
+                <CreditDashboard />
+
+              </RequirePermission>
+            }
+          />
+
+
+
+          <Route
+            path="user/dashboard"
+            element={
+              <RequirePermission permission="user.dashboard">
+
+                <UserDashboard />
+
+              </RequirePermission>
+            }
+          />
+
+
+
+
+
+
+          {/* ============================
+              LOANS
+          ============================= */}
+
+
+
+          <Route
+            path="all-loans"
+            element={
+              <AllLoans />
+            }
+          />
+
+
+
+          <Route
+            path="approved-loans"
+            element={
+              <ApprovedLoans />
+            }
+          />
+
+
+
+          <Route
+            path="disbursed-loans"
+            element={
+              <DisbursedLoans />
+            }
+          />
+
+
+
+          <Route
+            path="customer-details/:lan"
+            element={
+              <CustomerDetails />
+            }
+          />
+
+
+
+          <Route
+            path="loan-details/:lan"
+            element={
+              <LoanDetailsPage />
+            }
+          />
+
+
+
+          <Route
+            path="approved-loan-details/:lan"
+            element={
+              <CustomerDetails />
+            }
+          />
+
+
+
+          <Route
+            path="disbursement/:lan"
+            element={
+              <DisbursementDetails />
+            }
+          />
+
+
+
+          {/* ============================
+              DOCUMENTS
+          ============================= */}
+
+
+
+          <Route
+            path="documents/:lan"
+            element={
+              <DocumentsPage />
+            }
+          />
+
+
 
         </Route>
 
 
-        {/* ====================================================
-            PORTFOLIO OVERVIEW
-        ==================================================== */}
+
+
+
+        {/* ==============================
+            UNKNOWN ROUTE
+        =============================== */}
+
 
         <Route
-          path="portfolio"
+          path="*"
           element={
-            <PortfolioDashboard />
+            <Navigate
+              to="/"
+              replace
+            />
           }
         />
 
 
-        {/* ====================================================
-            ALL LOANS
-        ==================================================== */}
 
-        <Route
-          path="all-loans"
-          element={
-            <AllLoans />
-          }
-        />
-
-        {/* ====================================================
-    CUSTOMER DETAILS
-==================================================== */}
-
-        <Route
-          path="customer-details/:lan"
-          element={
-            <CustomerDetails />
-          }
-        />
+      </Routes>
 
 
-        {/* ====================================================
-            APPROVED LOANS
-        ==================================================== */}
+    </>
 
-        <Route
-          path="approved-loans"
-          element={
-            <ApprovedLoans />
-          }
-        />
-
-
-        {/* ====================================================
-            DISBURSED LOANS
-        ==================================================== */}
-
-        <Route
-          path="disbursed-loans"
-          element={
-            <DisbursedLoans />
-          }
-        />
-
-
-        {/* ====================================================
-            DOCUMENTS
-        ==================================================== */}
-
-        <Route
-          path="documents/:lan"
-          element={
-            <DocumentsPage />
-          }
-        />
-
-
-        {/* ====================================================
-            LOAN DETAILS
-        ==================================================== */}
-
-        {/* Keep for All Loans + Disbursed Loans */}
-
-        <Route
-          path="loan-details/:lan"
-          element={
-            <LoanDetailsPage />
-          }
-        />
-
-
-        {/* Approved Loan Details */}
-
-        <Route
-          path="approved-loan-details/:lan"
-          element={
-            <CustomerDetails />
-          }
-        />
-
-
-        {/* ====================================================
-            DISBURSEMENT
-        ==================================================== */}
-
-        <Route
-          path="disbursement/:lan"
-          element={
-            <DisbursementDetails />
-          }
-        />
-
-
-        {/* ====================================================
-            ADMIN DASHBOARD
-        ==================================================== */}
-
-        <Route
-          path="admin/dashboard"
-          element={
-            <RequirePermission permission="admin.dashboard">
-              <AdminDashboard />
-            </RequirePermission>
-          }
-        />
-
-
-        {/* ====================================================
-            OPERATIONS DASHBOARD
-        ==================================================== */}
-
-        <Route
-          path="operations/dashboard"
-          element={
-            <RequirePermission permission="operations.dashboard">
-              <OperationsDashboard />
-            </RequirePermission>
-          }
-        />
-
-
-        {/* ====================================================
-            CREDIT DASHBOARD
-        ==================================================== */}
-
-        <Route
-          path="credit/dashboard"
-          element={
-            <RequirePermission permission="credit.dashboard">
-              <CreditDashboard />
-            </RequirePermission>
-          }
-        />
-
-
-        {/* ====================================================
-            USER DASHBOARD
-        ==================================================== */}
-
-        <Route
-          path="user/dashboard"
-          element={
-            <RequirePermission permission="user.dashboard">
-              <UserDashboard />
-            </RequirePermission>
-          }
-        />
-
-      </Route>
-
-
-      {/* ======================================================
-          UNKNOWN ROUTE
-      ====================================================== */}
-
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to="/"
-            replace
-          />
-        }
-      />
-
-    </Routes>
   );
+
 }
 
 

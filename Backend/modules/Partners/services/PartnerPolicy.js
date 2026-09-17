@@ -13,7 +13,7 @@
  * real bureau pull is wired in.
  */
 const POLICY = Object.freeze({
-  MIN_BUREAU_SCORE: 650,
+  MIN_BUREAU_SCORE: 1,
 
   MIN_LOAN_AMOUNT: 5000,
   MAX_LOAN_AMOUNT: 15000,

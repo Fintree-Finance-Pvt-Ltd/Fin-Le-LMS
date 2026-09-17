@@ -28,7 +28,7 @@ const {
  * still reflects only what's in that PDF.
  */
 const POLICY = Object.freeze({
-  MIN_BUREAU_SCORE: 650,
+  MIN_BUREAU_SCORE: 1,
 
   MIN_LOAN_AMOUNT: 8000,
   MAX_LOAN_AMOUNT: 15000,

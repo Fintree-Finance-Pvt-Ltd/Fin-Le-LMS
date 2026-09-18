@@ -689,6 +689,124 @@ const updateUserPermissions = async (req, res) => {
   }
 };
 
+// ======================================================
+// DELETE USER BY ADMIN
+// ======================================================
+
+const deleteUser = async (req, res) => {
+
+  const connection = await db.getConnection();
+
+  try {
+
+    const userId = Number(req.params.id);
+
+
+    if (!userId) {
+      return res.status(400).json({
+        message: "Invalid user ID",
+      });
+    }
+
+
+    await connection.beginTransaction();
+
+
+    // ============================================
+    // CHECK USER EXISTS
+    // ============================================
+
+    const [users] = await connection.execute(
+      `
+      SELECT id, name, email, role_id
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+      `,
+      [userId]
+    );
+
+
+    if(users.length === 0){
+
+      await connection.rollback();
+
+      return res.status(404).json({
+        message:"User not found"
+      });
+
+    }
+
+
+
+    // ============================================
+    // REMOVE USER PERMISSIONS
+    // ============================================
+
+    await connection.execute(
+      `
+      DELETE FROM user_permissions
+      WHERE user_id = ?
+      `,
+      [userId]
+    );
+
+
+
+    // ============================================
+    // DELETE USER
+    // ============================================
+
+    await connection.execute(
+      `
+      DELETE FROM users
+      WHERE id = ?
+      `,
+      [userId]
+    );
+
+    await connection.commit();
+
+    return res.status(200).json({
+
+      success:true,
+
+      message:"User deleted successfully",
+
+      deleted_user:{
+        id:userId,
+        name:users[0].name,
+        email:users[0].email
+      }
+
+    });
+
+
+  } catch(error){
+
+    await connection.rollback();
+
+    console.error(
+      "Delete user error:",
+      error
+    );
+
+
+    return res.status(500).json({
+
+      message:"Internal server error"
+
+    });
+
+
+  } finally {
+
+    connection.release();
+
+  }
+
+};
+
 module.exports = {
   getAdminDashboard,
   createUser,
@@ -697,4 +815,5 @@ module.exports = {
   getUsers,
   getPermissions,
   updateUserPermissions,
+  deleteUser,
 };

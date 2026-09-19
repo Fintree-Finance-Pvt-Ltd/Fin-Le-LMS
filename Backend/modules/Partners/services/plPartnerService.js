@@ -6,11 +6,6 @@ const db = require("../../../config/db");
 const { runPlPartnerBre } = require("./PartnerBre");
 const getService = require("./partnerGetService");
 
-async function queryDB(sql, params = []) {
-  const [rows] = await db.query(sql, params);
-  return rows;
-}
-
 const {
   query,
   queryDB,

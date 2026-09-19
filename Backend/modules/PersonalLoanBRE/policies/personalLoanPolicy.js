@@ -230,7 +230,7 @@ function validateLoanAmount(value) {
   ) {
     return {
       passed: false,
-      reason: "LOAN_AMOUNT_OUTSIDE_8000_TO_15000",
+      reason: `LOAN_AMOUNT_OUTSIDE_${POLICY.MIN_LOAN_AMOUNT}_TO_${POLICY.MAX_LOAN_AMOUNT}`,
       amount,
     };
   }

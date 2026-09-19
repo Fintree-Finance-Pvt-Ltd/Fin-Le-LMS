@@ -40,8 +40,9 @@ router.get("/:lan", async (req, res) => {
         );
 
 
-        return res.status(500).json({
+        return res.status(error.statusCode || 500).json({
             success: false,
+            code: error.code,
             message: error.message
         });
     }

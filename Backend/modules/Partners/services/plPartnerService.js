@@ -7,6 +7,7 @@ const { runPlPartnerBre } = require("./PartnerBre");
 const getService = require("./partnerGetService");
 const {
   query,
+  queryDB,
   apiError,
   makeHash,
   getClientId,
@@ -4232,7 +4233,9 @@ ORDER BY due_date ASC
 
   if (!rows.length) {
 
-    throw new Error(
+    throw apiError(
+      404,
+      "SCHEDULE_NOT_FOUND",
       "Repayment schedule not found"
     );
 

@@ -8,6 +8,10 @@ const {
     validateLoanAmount
 } = require("../policies/personalLoanPolicy");
 
+const {
+    calculateNetDisbursalAmount
+} = require("../../Partners/services/PartnerPolicy");
+
 
 // =====================================================
 // TRACKWIZZ
@@ -28,6 +32,35 @@ const TRACKWIZZ_AML_STATUSES = new Set([
     "REVIEW",
     "STOP"
 ]);
+
+
+// =====================================================
+// BUREAU MOCK MODE
+// =====================================================
+
+const BUREAU_MOCK_MODE =
+    String(
+        process.env.BUREAU_MOCK_MODE || ""
+    )
+        .trim()
+        .toLowerCase() === "true";
+
+
+/*
+ * Minimal, well-formed Experian-shaped XML with a clean score and no
+ * accounts/enquiries/overdue — parseBureauReport() runs on this exactly
+ * as it would on a real report, so mocking only replaces the transport
+ * call, not the parsing/decision logic.
+ */
+const BUREAU_MOCK_SCORE = 750;
+
+function buildMockBureauXml() {
+    return (
+        `<INProfileResponse>` +
+        `<SCORE><BureauScore>${BUREAU_MOCK_SCORE}</BureauScore></SCORE>` +
+        `</INProfileResponse>`
+    );
+}
 
 
 // =====================================================
@@ -612,74 +645,77 @@ const runPLBRE = async (lan) => {
 
             // ---------------------------------------------
             // Call Experian Bureau API
+            // (or return a clean mock report — BUREAU_MOCK_MODE=true)
             // ---------------------------------------------
 
-            const bureauResult =
-                await runBureau({
+            let bureauResult;
 
-                    first_name:
-                        loan.customer_first_name,
+            if (BUREAU_MOCK_MODE) {
 
-                    middle_name:
-                        loan.customer_middle_name,
+                console.log(
+                    "⚠️ Bureau MOCK MODE enabled"
+                );
 
-                    last_name:
-                        loan.customer_last_name,
+                bureauResult = {
+                    success: true,
+                    response: buildMockBureauXml()
+                };
 
+            } else {
 
-                    dob:
-                        loan.date_of_birth,
+                bureauResult =
+                    await runBureau({
 
+                        first_name:
+                            loan.customer_first_name,
 
-                    gender:
-                        loan.gender,
+                        middle_name:
+                            loan.customer_middle_name,
 
-
-                    pan_number:
-                        loan.pan_number,
-
-
-                    mobile_number:
-                        loan.mobile_number,
-
-
-                    current_address:
-                        loan.curr_address_line1,
+                        last_name:
+                            loan.customer_last_name,
 
 
-                    current_village_city:
-                        loan.curr_city,
+                        dob:
+                            loan.date_of_birth,
 
 
-                    current_state:
-                        loan.curr_state,
+                        gender:
+                            loan.gender,
 
 
-                    current_pincode:
-                        loan.curr_pincode,
+                        pan_number:
+                            loan.pan_number,
 
 
-                    loan_amount:
-                        loan.requested_amount,
+                        mobile_number:
+                            loan.mobile_number,
 
 
-                    loan_tenure:
-                        loan.requested_tenure
-                });
+                        current_address:
+                            loan.curr_address_line1,
 
 
-            /*
-             * Temporary mock if required:
-             *
-             * const bureauResult = {
-             *     success: true,
-             *     response: JSON.stringify({
-             *         score: 720,
-             *         enquiries: 2,
-             *         overdue: 0
-             *     })
-             * };
-             */
+                        current_village_city:
+                            loan.curr_city,
+
+
+                        current_state:
+                            loan.curr_state,
+
+
+                        current_pincode:
+                            loan.curr_pincode,
+
+
+                        loan_amount:
+                            loan.requested_amount,
+
+
+                        loan_tenure:
+                            loan.requested_tenure
+                    });
+            }
 
 
             if (
@@ -816,6 +852,50 @@ const runPLBRE = async (lan) => {
         }
 
 
+        // -----------------------------------------------
+        // PROCESSING FEE / NET APPROVED AMOUNT
+        // -----------------------------------------------
+        //
+        // An APPROVED decision is useless to disbursal without an actual
+        // amount — requestDisbursal() requires bre_approved_loan_amount,
+        // and generatePlPartnerRps() requires bre_gross_approved_amount.
+        // Nothing here was ever setting either, so every loan this engine
+        // approved got stuck at disbursal with APPROVED_AMOUNT_MISSING.
+
+        let grossApprovedAmount = null;
+        let netApprovedAmount = null;
+
+        if (breStatus === "APPROVED") {
+
+            const netResult =
+                calculateNetDisbursalAmount({
+                    creditLimit:
+                        loan.requested_amount,
+
+                    processingFeeRate:
+                        Number(loan.processing_fee) / 100
+                });
+
+            if (!netResult.ok) {
+
+                breStatus =
+                    "REJECTED";
+
+                breReason =
+                    netResult.reason ||
+                    "INVALID_PROCESSING_FEE";
+
+            } else {
+
+                grossApprovedAmount =
+                    netResult.grossApprovedAmount;
+
+                netApprovedAmount =
+                    netResult.netDisbursalAmount;
+            }
+        }
+
+
         // =================================================
         // 6. SAVE FINAL BRE DECISION
         // =================================================
@@ -837,7 +917,11 @@ const runPLBRE = async (lan) => {
 
                 bre_final_status = ?,
 
-                bre_final_reason = ?
+                bre_final_reason = ?,
+
+                bre_gross_approved_amount = ?,
+
+                bre_approved_loan_amount = ?
 
             WHERE id = ?
             `,
@@ -862,6 +946,10 @@ const runPLBRE = async (lan) => {
                 breStatus,
 
                 breReason,
+
+                grossApprovedAmount,
+
+                netApprovedAmount,
 
                 loan.id
             ]

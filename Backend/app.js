@@ -6,6 +6,7 @@ const session = require("express-session");
 const path = require("path");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const cron = require("node-cron");
 
 const db = require("./config/db");
 const apiAuditMiddleware = require("./middleware/apiAuditMiddleware");
@@ -29,6 +30,10 @@ const plBreRoutes = require("./modules/PersonalLoanBRE/routes/plBreRoutes");
 const {
   syncPermissions,
 } = require("./services/permissionSyncService");
+
+const {
+  recalculateDpd,
+} = require("./services/dpdService");
 
 
 const app = express();
@@ -226,7 +231,43 @@ const startServer = async () => {
     await syncPermissions();
 
 
-    // 3. Start server
+    // 3. Recalculate DPD once at boot, then daily at 00:05 —
+    // manual_rps_fintree_personal_loan.dpd was otherwise never updated
+    // after the schedule row was created.
+    try {
+      const dpdResult = await recalculateDpd();
+
+      console.log(
+        "DPD recalculated at startup:",
+        dpdResult
+      );
+    } catch (dpdError) {
+
+      console.error(
+        "Startup DPD recalculation failed (non-fatal):",
+        dpdError
+      );
+    }
+
+    cron.schedule("5 0 * * *", async () => {
+      try {
+        const result = await recalculateDpd();
+
+        console.log(
+          "DPD recalculated (daily job):",
+          result
+        );
+      } catch (error) {
+
+        console.error(
+          "Daily DPD recalculation failed:",
+          error
+        );
+      }
+    });
+
+
+    // 4. Start server
     app.listen(PORT, () => {
       console.log(
         `Server running on port ${PORT}`

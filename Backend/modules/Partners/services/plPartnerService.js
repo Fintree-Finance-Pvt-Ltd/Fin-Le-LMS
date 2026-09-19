@@ -1552,13 +1552,15 @@ async function recordPlPartnerDisbursement({
          (
            Disbursement_UTR,
            Disbursement_Date,
-           lan
+           lan,
+           utr
          )
-         VALUES (?, ?, ?)`,
+         VALUES (?, ?, ?, ?)`,
         [
           disbursementUtr,
           disbursementDate,
           lan,
+          disbursementUtr,
         ],
       );
     }
@@ -3086,15 +3088,15 @@ async function generatePlPartnerRps(lan, connection) {
   const [rows] = await connection.query(
     `SELECT
       p.lan,
-      p.bre_gross_approved_amount,
-      p.selected_offer_tenure,
-      p.tenure_type,
-      p.interest_rate,
+      COALESCE(p.bre_gross_approved_amount, p.selected_offer_amount, p.requested_amount) AS bre_gross_approved_amount,
+      COALESCE(p.selected_offer_tenure, p.requested_tenure) AS selected_offer_tenure,
+      COALESCE(p.tenure_type, 'DAYS') AS tenure_type,
+      COALESCE(p.interest_rate, 0) AS interest_rate,
       d.Disbursement_Date,
       DATE_FORMAT(
         DATE_ADD(
           d.Disbursement_Date,
-          INTERVAL (p.selected_offer_tenure - 1) DAY
+          INTERVAL (COALESCE(p.selected_offer_tenure, p.requested_tenure) - 1) DAY
         ),
         '%Y-%m-%d'
       ) AS due_date
@@ -3128,7 +3130,8 @@ async function generatePlPartnerRps(lan, connection) {
 
   if (
     loan.bre_gross_approved_amount === null ||
-    loan.bre_gross_approved_amount === undefined
+    loan.bre_gross_approved_amount === undefined ||
+    Number(loan.bre_gross_approved_amount) <= 0
   ) {
     throw apiError(
       409,
@@ -3139,7 +3142,8 @@ async function generatePlPartnerRps(lan, connection) {
 
   if (
     loan.selected_offer_tenure === null ||
-    loan.selected_offer_tenure === undefined
+    loan.selected_offer_tenure === undefined ||
+    Number(loan.selected_offer_tenure) <= 0
   ) {
     throw apiError(
       409,

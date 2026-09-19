@@ -24,6 +24,7 @@ const reportsRoutes = require("./routes/reports");
 
 const plPartnerRoutes = require("./modules/Partners/routes/plPartnerRoutes");
 const easebuzzWebhookRoutes = require("./modules/Partners/routes/easebuzzWebhookRoutes");
+const fintreeDisbursalWebhookRoutes = require("./modules/Partners/routes/fintreeDisbursalWebhookRoutes");
 const plBreRoutes = require("./modules/PersonalLoanBRE/routes/plBreRoutes");
 
 const {
@@ -46,6 +47,22 @@ const isProduction =
 
 // const isProduction =
 //   process.env.NODE_ENV === "production";
+// Local HTTP development needs a non-secure cookie. UAT and production keep
+// secure cookies unless SESSION_COOKIE_SECURE is explicitly configured.
+const sessionCookieSecure =
+  process.env.SESSION_COOKIE_SECURE === undefined
+    ? isProduction
+    : process.env.SESSION_COOKIE_SECURE === "true";
+
+/*
+ * A credentialed browser request cannot use Access-Control-Allow-Origin: *.
+ * Keep the allowed web-client origins explicit; deployments may provide a
+ * comma-separated FRONTEND_URL value when more than one client is required.
+ */
+const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 
 // ======================================================
@@ -67,7 +84,14 @@ app.use(
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin(origin, callback) {
+      // Non-browser clients (for example server-to-server calls) send no Origin.
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origin not allowed by CORS"));
+    },
     credentials: true,
   })
 );
@@ -164,6 +188,7 @@ app.use(
         60 *
         60 *
         24,
+      secure: sessionCookieSecure,
 
 
     },
@@ -233,6 +258,9 @@ app.use("/api/partner/v1", apiAuditMiddleware, plPartnerRoutes);
 
 app.use("/api/webhooks/easebuzz",easebuzzWebhookRoutes); // EASEBUZZ WEBHOOK ROUTES
 
+// Receives confirmed FTPL disbursals forwarded by Fintree LMS.
+app.use("/api/webhooks", fintreeDisbursalWebhookRoutes);
+
 app.use("/api/personal-loan/bre",plBreRoutes);  // PERSONAL LOAN BRE ROUTES
 
 app.use("/api/loans",loanRoutes);
@@ -285,9 +313,11 @@ const startServer = async () => {
       error
     );
 
-    process.exit(1);
   }
 };
 
+module.exports = app;
 
-startServer();
+if (require.main === module) {
+  startServer();
+}

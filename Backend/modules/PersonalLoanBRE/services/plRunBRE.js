@@ -5,7 +5,8 @@ const { runBureau } = require("./bureauService");
 const {
     parseBureauReport,
     calculateAge,
-    validateLoanAmount
+    validateLoanAmount,
+    POLICY
 } = require("../policies/personalLoanPolicy");
 
 const {
@@ -841,7 +842,7 @@ const runPLBRE = async (lan) => {
 
         if (
             bureauData.score &&
-            bureauData.score < 650
+            bureauData.score < (POLICY?.MIN_BUREAU_SCORE ?? 650)
         ) {
 
             breStatus =

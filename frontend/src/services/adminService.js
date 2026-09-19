@@ -66,4 +66,16 @@ export const adminService = {
       }
     );
   },
+
+  deleteUser: (id) => {
+
+  return apiFetch(
+    `/admin/users/${id}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+},
+
 };

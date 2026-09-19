@@ -1,5 +1,9 @@
 const crypto = require("crypto");
 const db = require("../../../../config/db");
+const {
+  recordPlPartnerDisbursement,
+  sendPlPartnerDisbursalWebhook,
+} = require("../partnerLoanService");
 
 /*
 |--------------------------------------------------------------------------
@@ -131,6 +135,222 @@ function normalizeTransferDate(value) {
     .slice(0, 10);
 }
 
+function isLaterDate(candidate, reference) {
+  const candidateDate = normalizeTransferDate(candidate);
+  const referenceDate = normalizeTransferDate(reference);
+
+  return Boolean(
+    candidateDate &&
+    referenceDate &&
+    candidateDate > referenceDate,
+  );
+}
+
+function calculateFirstRepaymentDate(disbursementDate, tenureDays) {
+  const normalizedDate = normalizeTransferDate(disbursementDate);
+  const days = Number(tenureDays);
+
+  if (!normalizedDate || !Number.isInteger(days) || days <= 0) {
+    return null;
+  }
+
+  const date = new Date(`${normalizedDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function safeLogValue(value) {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  return String(text || "").slice(0, 4000);
+}
+
+async function deliverPlDisbursalWebhook(uniqueRequestNumber) {
+  const connection = await db.getConnection();
+  let delivery;
+
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query(
+      `SELECT id, payload, delivery_status
+       FROM pl_disbursal_webhook_deliveries
+       WHERE unique_request_number = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [uniqueRequestNumber],
+    );
+    delivery = rows[0];
+
+    if (!delivery || delivery.delivery_status === "DELIVERED") {
+      await connection.commit();
+      return { delivered: delivery?.delivery_status === "DELIVERED" };
+    }
+
+    if (delivery.delivery_status === "DELIVERING") {
+      await connection.commit();
+      return { delivered: false, inProgress: true };
+    }
+
+    await connection.query(
+      `UPDATE pl_disbursal_webhook_deliveries
+       SET delivery_status = 'DELIVERING', retry_count = retry_count + 1,
+           last_error = NULL
+       WHERE id = ?`,
+      [delivery.id],
+    );
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  const payload = JSON.parse(delivery.payload);
+
+  try {
+    const result = await sendPlPartnerDisbursalWebhook({
+      lan: payload.lan,
+      utr: payload.utr,
+      disbursementDate: payload.disbursement_date,
+      amount: payload.amount,
+      firstRepaymentDate: payload.firstRepaymentDate,
+      eventId: payload.eventId,
+    });
+
+    await db.query(
+      `UPDATE pl_disbursal_webhook_deliveries
+       SET delivery_status = 'DELIVERED', webhook_response = ?,
+           last_error = NULL, delivered_at = NOW()
+       WHERE unique_request_number = ?`,
+      [safeLogValue({ status: result.statusCode, body: result.response }), uniqueRequestNumber],
+    );
+    console.log("[PL LOS] Disbursal webhook delivered", {
+      lan: payload.lan,
+      uniqueRequestNumber,
+      statusCode: result.statusCode,
+    });
+    return { delivered: true };
+  } catch (error) {
+    const response = error.response
+      ? { status: error.response.status, body: error.response.data }
+      : { message: error.message };
+    await db.query(
+      `UPDATE pl_disbursal_webhook_deliveries
+       SET delivery_status = 'FAILED', last_error = ?, webhook_response = ?
+       WHERE unique_request_number = ?`,
+      [safeLogValue(response), safeLogValue(response), uniqueRequestNumber],
+    );
+    console.error("[PL LOS] Disbursal webhook delivery failed", {
+      lan: payload.lan,
+      uniqueRequestNumber,
+      error: safeLogValue(response),
+    });
+    return { delivered: false };
+  }
+}
+
+async function queuePlDisbursalWebhook({ transfer, uniqueRequestNumber, utr, transferDate }) {
+  try {
+    await recordPlPartnerDisbursement({
+      lan: transfer.lan,
+      disbursementUtr: utr,
+      disbursementDate: transferDate,
+    });
+  } catch (error) {
+    console.error("[PL LOS] Could not prepare disbursal webhook", {
+      lan: transfer.lan,
+      uniqueRequestNumber,
+      error: error.message,
+    });
+    return { delivered: false, queued: false };
+  }
+
+  const firstRepaymentDate = calculateFirstRepaymentDate(
+    transferDate,
+    transfer.selected_offer_tenure,
+  );
+  if (!isLaterDate(firstRepaymentDate, transferDate)) {
+    console.error("[PL LOS] Invalid first repayment date; webhook was not sent", {
+      lan: transfer.lan,
+      uniqueRequestNumber,
+      transferDate,
+      firstRepaymentDate,
+    });
+    return { delivered: false, queued: false };
+  }
+
+  const payload = {
+    lan: transfer.lan,
+    utr,
+    status: "SUCCESS",
+    disbursement_date: transferDate,
+    amount: String(transfer.amount),
+    firstRepaymentDate,
+    eventId: `evt-${uniqueRequestNumber}`,
+  };
+
+  await db.query(
+    `INSERT INTO pl_disbursal_webhook_deliveries
+       (unique_request_number, lan, payload, delivery_status)
+     VALUES (?, ?, ?, 'PENDING')
+     ON DUPLICATE KEY UPDATE updated_at = updated_at`,
+    [uniqueRequestNumber, transfer.lan, JSON.stringify(payload)],
+  );
+
+  return deliverPlDisbursalWebhook(uniqueRequestNumber);
+}
+
+async function forwardConfirmedDisbursal(args) {
+  try {
+    return await queuePlDisbursalWebhook(args);
+  } catch (error) {
+    // The LMS payout transaction has already committed.  A delivery-storage
+    // outage must never turn that confirmed payout into a failed callback.
+    console.error("[PL LOS] Could not queue disbursal webhook", {
+      lan: args.transfer.lan,
+      uniqueRequestNumber: args.uniqueRequestNumber,
+      error: error.message,
+    });
+    return { delivered: false, queued: false };
+  }
+}
+
+/**
+ * Cron entry point.  The database row is the idempotency boundary, so this
+ * can be safely invoked by one or more schedulers.
+ */
+async function retryFailedPlDisbursalWebhooks(limit = 100) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 100, 1), 500);
+
+  // Recover a worker that stopped between claiming and delivering a row.
+  await db.query(
+    `UPDATE pl_disbursal_webhook_deliveries
+     SET delivery_status = 'FAILED', last_error = 'Delivery claim timed out'
+     WHERE delivery_status = 'DELIVERING'
+       AND updated_at < DATE_SUB(NOW(), INTERVAL 15 MINUTE)`,
+  );
+
+  const [rows] = await db.query(
+    `SELECT unique_request_number
+     FROM pl_disbursal_webhook_deliveries
+     WHERE delivery_status IN ('PENDING', 'FAILED')
+     ORDER BY updated_at ASC
+     LIMIT ?`,
+    [safeLimit],
+  );
+
+  const results = await Promise.all(
+    rows.map(({ unique_request_number: uniqueRequestNumber }) =>
+      deliverPlDisbursalWebhook(uniqueRequestNumber),
+    ),
+  );
+
+  return {
+    attempted: rows.length,
+    delivered: results.filter((result) => result.delivered).length,
+  };
+}
+
 /*
 |--------------------------------------------------------------------------
 | PROCESS EASEBUZZ PAYOUT WEBHOOK
@@ -258,7 +478,13 @@ if (!verifyWebhookHash(data)) {
             status,
             payout_status,
             utr,
-            transfer_date
+            transfer_date,
+            (
+              SELECT selected_offer_tenure
+              FROM pl_partner_applications
+              WHERE partner_application_id = quick_transfers.partner_application_id
+              LIMIT 1
+            ) AS selected_offer_tenure
           FROM quick_transfers
           WHERE unique_request_number = ?
           LIMIT 1
@@ -292,16 +518,24 @@ if (!verifyWebhookHash(data)) {
         .trim()
         .toLowerCase();
 
-    const utr =
-      data.unique_transaction_reference ||
-      transfer.utr ||
-      null;
+    // The PL event is constructed only from these confirmed callback fields;
+    // persisted values are retained solely for LMS bookkeeping/response data.
+    const webhookUtr =
+      String(data.unique_transaction_reference || "").trim() || null;
+    const webhookTransferDate =
+      normalizeTransferDate(data.transfer_date);
 
+    const utr = webhookUtr || transfer.utr || null;
     const transferDate =
-      normalizeTransferDate(
-        data.transfer_date ||
-        transfer.transfer_date,
+      webhookTransferDate || normalizeTransferDate(transfer.transfer_date);
+
+    if (isSuccess && (!webhookUtr || !webhookTransferDate)) {
+      throw apiError(
+        422,
+        "PAYOUT_SUCCESS_DATA_INCOMPLETE",
+        "Successful payout is missing UTR or transfer_date",
       );
+    }
 
       /*
 |--------------------------------------------------------------------------
@@ -354,6 +588,16 @@ if (
     ) {
       await connection.commit();
 
+      // A duplicate provider callback must reuse the same outbox row.  This
+      // lets it safely retry a previously failed PL delivery without creating
+      // a second LOS disbursal.
+      const plWebhook = await forwardConfirmedDisbursal({
+        transfer,
+        uniqueRequestNumber,
+        utr: webhookUtr,
+        transferDate: webhookTransferDate,
+      });
+
       return {
         received: true,
 
@@ -376,6 +620,8 @@ if (
         utr,
 
         transferDate,
+
+        losWebhookDelivered: plWebhook.delivered,
       };
     }
 
@@ -384,20 +630,6 @@ if (
     | 9. SUCCESS MUST HAVE UTR + TRANSFER DATE
     |--------------------------------------------------------------------------
     */
-
-    if (
-      isSuccess &&
-      (
-        !utr ||
-        !transferDate
-      )
-    ) {
-      throw apiError(
-        422,
-        "PAYOUT_SUCCESS_DATA_INCOMPLETE",
-        "Successful payout is missing UTR or transfer_date",
-      );
-    }
 
     /*
     |--------------------------------------------------------------------------
@@ -511,7 +743,29 @@ if (isSuccess) {
 
     /*
     |--------------------------------------------------------------------------
-    | 14. RESPONSE
+    | 14. NOTIFY PERSONAL-LOAN LOS
+    |--------------------------------------------------------------------------
+    |
+    | Easebuzz calls this LMS endpoint after the bank transfer.  A successful
+    | callback is the source of truth for a disbursal, so only after its LMS
+    | transaction has committed do we create the UTR/RPS records and forward
+    | the event to the Personal Loan LOS.  The LOS handoff is deliberately
+    | non-blocking: returning an error here would make Easebuzz retry a payout
+    | callback that has already been safely processed in the LMS.
+    |
+    */
+    const plWebhook = isSuccess
+      ? await forwardConfirmedDisbursal({
+          transfer,
+          uniqueRequestNumber,
+          utr: webhookUtr,
+          transferDate: webhookTransferDate,
+        })
+      : { delivered: false, queued: false };
+
+    /*
+    |--------------------------------------------------------------------------
+    | 15. RESPONSE
     |--------------------------------------------------------------------------
     */
 
@@ -539,6 +793,8 @@ if (isSuccess) {
       utr,
 
       transferDate,
+
+      losWebhookDelivered: plWebhook.delivered,
     };
 
   } catch (error) {
@@ -555,4 +811,5 @@ if (isSuccess) {
 
 module.exports = {
   processPayoutWebhook,
+  retryFailedPlDisbursalWebhooks,
 };

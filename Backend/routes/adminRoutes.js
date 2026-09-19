@@ -14,6 +14,7 @@ const {
   getPermissions,
   getUserPermissions,
   updateUserPermissions,
+  deleteUser,
 } = require("../controllers/adminController");
 
 const router = express.Router();
@@ -50,6 +51,14 @@ router.post(
   requireAuth,
   allowRoles(ROLES.ADMIN),
   createUser
+);
+
+// Delete user
+router.delete(
+  "/users/:id",
+  requireAuth,
+  allowRoles(ROLES.ADMIN),
+  deleteUser
 );
 
 

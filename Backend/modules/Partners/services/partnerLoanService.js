@@ -59,13 +59,15 @@ async function recordPlPartnerDisbursement({
          (
            Disbursement_UTR,
            Disbursement_Date,
-           lan
+           lan,
+           utr
          )
-         VALUES (?, ?, ?)`,
+         VALUES (?, ?, ?, ?)`,
         [
           disbursementUtr,
           disbursementDate,
           lan,
+          disbursementUtr,
         ],
       );
     }
@@ -128,42 +130,40 @@ async function sendPlPartnerDisbursalWebhook({
   firstRepaymentDate,
   eventId,
 }) {
-  const baseUrl = String(
-    process.env.PLP_BASE_URL || "",
-  )
-    .trim()
-    .replace(/\/+$/, "");
-
   const webhookUrl =
     String(
       process.env
         .PLP_DISBURSAL_WEBHOOK_URL || "",
     ).trim() ||
-    (baseUrl
-      ? `${baseUrl}/api/webhooks/lenders/FFPL2026/disbursal`
+    (String(process.env.PLP_BASE_URL || "").trim().replace(/\/+$/, "")
+      ? `${String(process.env.PLP_BASE_URL).trim().replace(/\/+$/, "")}/api/webhooks/lenders/FFPL2026/disbursal`
       : "");
 
   if (!webhookUrl) {
     throw new Error(
-      "PLP_DISBURSAL_WEBHOOK_URL or PLP_BASE_URL is required to notify the partner",
+      "PLP_DISBURSAL_WEBHOOK_URL or PLP_BASE_URL is required to notify the Personal Loan platform",
     );
   }
 
   const webhookSecret = String(
-    process.env
+      process.env
       .PLP_DISBURSAL_WEBHOOK_SECRET || "",
   ).trim();
 
-  await axios.post(
+  const response = await axios.post(
     webhookUrl,
     {
       lan,
-      utr,
-      disbursement_date: disbursementDate,
-      amount: String(amount),
-      firstRepaymentDate,
       status: "SUCCESS",
-      eventId,
+      utr,
+      DisbursalUTR: utr,
+      disbursement_date: disbursementDate,
+      DisbursalDate: disbursementDate,
+      amount: String(amount),
+      DisbursedAmount: Number(amount) || 0,
+      firstRepaymentDate,
+      RepaymentDate: firstRepaymentDate,
+      eventId: eventId || null,
     },
     {
       headers: {
@@ -172,6 +172,12 @@ async function sendPlPartnerDisbursalWebhook({
         ...(webhookSecret
           ? {
               "x-pl-webhook-secret":
+                webhookSecret,
+              "x-lender-webhook-secret":
+                webhookSecret,
+              "x-disbursal-webhook-secret":
+                webhookSecret,
+              "x-webhook-secret":
                 webhookSecret,
             }
           : {}),
@@ -188,6 +194,12 @@ async function sendPlPartnerDisbursalWebhook({
       eventId,
     },
   );
+
+  return {
+    status: "DELIVERED",
+    statusCode: response.status,
+    response: response.data,
+  };
 }
 
 async function triggerEasebuzzPayout({
@@ -788,28 +800,6 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       [app.partner_application_id],
     );
 
-    try {
-      await sendPlPartnerDisbursalWebhook({
-        lan: app.lan,
-        utr,
-        disbursementDate: transferDate,
-        amount,
-        firstRepaymentDate:
-          rps?.dueDate || null,
-        eventId:
-          `evt-${uniqueRequestNumber}`,
-      });
-    } catch (webhookError) {
-      console.error(
-        "[PL PARTNER] Disbursal webhook failed (non-blocking)",
-        {
-          lan: app.lan,
-          uniqueRequestNumber,
-          error: webhookError.message,
-        },
-      );
-    }
-
     return {
       ...baseResponse,
 
@@ -1167,15 +1157,15 @@ async function generatePlPartnerRps(lan, connection) {
   const [rows] = await connection.query(
     `SELECT
       p.lan,
-      p.bre_gross_approved_amount,
-      p.selected_offer_tenure,
-      p.tenure_type,
-      p.interest_rate,
+      COALESCE(p.bre_gross_approved_amount, p.selected_offer_amount, p.requested_amount) AS bre_gross_approved_amount,
+      COALESCE(p.selected_offer_tenure, p.requested_tenure) AS selected_offer_tenure,
+      COALESCE(p.tenure_type, 'DAYS') AS tenure_type,
+      COALESCE(p.interest_rate, 0) AS interest_rate,
       d.Disbursement_Date,
       DATE_FORMAT(
         DATE_ADD(
           d.Disbursement_Date,
-          INTERVAL (p.selected_offer_tenure - 1) DAY
+          INTERVAL (COALESCE(p.selected_offer_tenure, p.requested_tenure) - 1) DAY
         ),
         '%Y-%m-%d'
       ) AS due_date
@@ -1209,7 +1199,8 @@ async function generatePlPartnerRps(lan, connection) {
 
   if (
     loan.bre_gross_approved_amount === null ||
-    loan.bre_gross_approved_amount === undefined
+    loan.bre_gross_approved_amount === undefined ||
+    Number(loan.bre_gross_approved_amount) <= 0
   ) {
     throw apiError(
       409,
@@ -1220,7 +1211,8 @@ async function generatePlPartnerRps(lan, connection) {
 
   if (
     loan.selected_offer_tenure === null ||
-    loan.selected_offer_tenure === undefined
+    loan.selected_offer_tenure === undefined ||
+    Number(loan.selected_offer_tenure) <= 0
   ) {
     throw apiError(
       409,
@@ -1901,8 +1893,11 @@ module.exports = {
   requestDisbursal,
   recordDisbursementUtr,
   generatePlPartnerRps,
+  // Used by the provider-webhook consumer after a payout reaches SUCCESS.
+  // Keep the LMS -> LOS notification contract in one place.
+  recordPlPartnerDisbursement,
+  sendPlPartnerDisbursalWebhook,
   recordRepayment,
   addExtraCharge,
   waiveExtraCharge,
 };
-

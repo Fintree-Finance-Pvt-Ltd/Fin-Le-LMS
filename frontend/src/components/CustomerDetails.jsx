@@ -29,22 +29,16 @@ function CustomerDetails() {
 
     const [error, setError] = useState("");
 
-    const [refreshing, setRefreshing] = useState(false);
-
 
     // =====================================================
     // FETCH CUSTOMER DETAILS
     // =====================================================
 
-    const fetchCustomerDetails = async (isRefresh = false) => {
+    const fetchCustomerDetails = async () => {
 
         try {
 
-            if (isRefresh) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
+            setLoading(true);
 
             setError("");
 
@@ -143,7 +137,6 @@ function CustomerDetails() {
 
             setLoading(false);
 
-            setRefreshing(false);
 
         }
 
@@ -686,7 +679,7 @@ function CustomerDetails() {
 
 
                             <button
-                                onClick={() => fetchCustomerDetails(true)}
+                                onClick={fetchCustomerDetails}
                                 className="
                   mt-4
                   inline-flex
@@ -790,44 +783,6 @@ function CustomerDetails() {
 
                 </button>
 
-
-                <button
-                    onClick={() => fetchCustomerDetails(true)}
-                    disabled={refreshing}
-                    className="
-            inline-flex
-            w-fit
-            items-center
-            gap-2
-            rounded-xl
-            border
-            border-emerald-200
-            bg-emerald-50
-            px-4
-            py-2.5
-            text-sm
-            font-semibold
-            text-emerald-700
-            transition-all
-            duration-200
-            hover:bg-emerald-100
-            disabled:cursor-not-allowed
-            disabled:opacity-60
-          "
-                >
-
-                    <RefreshCw
-                        size={15}
-                        className={
-                            refreshing
-                                ? "animate-spin"
-                                : ""
-                        }
-                    />
-
-                    Refresh
-
-                </button>
 
             </div>
 

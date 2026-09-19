@@ -1380,8 +1380,17 @@ function buildBreResponse(
   */
 
   if (version === 2) {
+    /*
+     * This figure is what the partner is told to send back as `amount` on
+     * POST /disburse, and requestDisbursal() requires that value to match
+     * bre_approved_loan_amount exactly (the NET amount, after processing
+     * fee + GST) — that's also the real amount wired out via Easebuzz.
+     * Reporting the gross amount here (as this used to) told the partner
+     * a number that could never pass that check.
+     */
     approvedAmount =
       Number(
+        app.bre_approved_loan_amount ||
         result.grossApprovedLoanAmount ||
         app.selected_offer_amount ||
         result.creditLimit ||

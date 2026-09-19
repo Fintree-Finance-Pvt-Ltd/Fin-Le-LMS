@@ -456,7 +456,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
   */
 
   const uniqueRequestNumber =
-    `DISB_${app.id}_${Date.now()}`;
+    `FTPL_${app.id}_${Date.now()}`;
 
   const lockConnection =
     await db.getConnection();

@@ -807,7 +807,7 @@ const runPLBRE = async (lan) => {
         // -----------------------------------------------
 
         if (
-            age < 21
+            age < 18
         ) {
 
             breStatus =

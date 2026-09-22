@@ -1658,12 +1658,16 @@ async function sendPlPartnerDisbursalWebhook({
     webhookUrl,
     {
       lan,
-      utr,
-      disbursement_date: disbursementDate,
-      amount: String(amount),
-      firstRepaymentDate,
       status: "SUCCESS",
-      eventId,
+      utr,
+      DisbursalUTR: utr,
+      disbursement_date: disbursementDate,
+      DisbursalDate: disbursementDate,
+      amount: String(amount),
+      DisbursedAmount: Number(amount) || 0,
+      firstRepaymentDate,
+      RepaymentDate: firstRepaymentDate,
+      eventId: eventId || null,
     },
     {
       headers: {

@@ -800,6 +800,23 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       [app.partner_application_id],
     );
 
+    try {
+      await sendPlPartnerDisbursalWebhook({
+        lan: app.lan,
+        utr,
+        disbursementDate: transferDate,
+        amount,
+        firstRepaymentDate: rps?.dueDate || null,
+        eventId: `evt-${uniqueRequestNumber}`,
+      });
+    } catch (plError) {
+      console.error("[PL PARTNER] Automatic disbursal webhook forwarding failed", {
+        lan: app.lan,
+        utr,
+        error: plError.message,
+      });
+    }
+
     return {
       ...baseResponse,
 

@@ -6,6 +6,11 @@ const {
   recordPlPartnerDisbursement,
   sendPlPartnerDisbursalWebhook,
 } = require("../services/partnerLoanService");
+
+const {
+  generatePLWelcomeLetter,
+} = require("../../../services/plWelcomeLetterService");
+
 const { query } = require("../utils/partnerUtils");
 
 function isAuthorized(request) {
@@ -129,6 +134,21 @@ router.post("/lenders/FFPL2026/disbursal", async (req, res) => {
        WHERE lan = ?`,
       [lan],
     );
+
+    // A document failure must not turn an already-completed disbursal into
+    // a failed webhook response. The service itself prevents duplicates by LAN.
+    try {
+      const welcomeLetter = await generatePLWelcomeLetter(lan);
+      console.log("[PL] Welcome letter processed", {
+        lan,
+        alreadyGenerated: Boolean(welcomeLetter.alreadyGenerated),
+      });
+    } catch (error) {
+      console.error("[PL] Welcome letter generation failed", {
+        lan,
+        error: error.message,
+      });
+    }
 
     console.log("[FIN-LE] Forwarded Fintree disbursal received", {
       lan,

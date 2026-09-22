@@ -28,6 +28,9 @@ const easebuzzWebhookRoutes = require("./modules/Partners/routes/easebuzzWebhook
 const fintreeDisbursalWebhookRoutes = require("./modules/Partners/routes/fintreeDisbursalWebhookRoutes");
 const plBreRoutes = require("./modules/PersonalLoanBRE/routes/plBreRoutes");
 
+const welcomeLetterRoutes =
+require("./routes/welcomeLetterRoutes");
+
 const {
   syncPermissions,
 } = require("./services/permissionSyncService");
@@ -253,7 +256,7 @@ app.use("/api/credit",creditRoutes);
 
 app.use("/api/user",userRoutes);
 
-
+app.use("/api/welcome-letter", welcomeLetterRoutes);
 
 // ======================================================
 // PARTNER / LENDER API ROUTES

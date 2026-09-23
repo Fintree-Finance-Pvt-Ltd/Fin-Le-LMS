@@ -265,10 +265,6 @@ const login = async (req, res) => {
 // GET CURRENT USER
 // ======================================================
 
-// ======================================================
-// GET CURRENT USER
-// ======================================================
-
 const getMe = async (req, res) => {
   try {
     const userId = req.session?.userId;

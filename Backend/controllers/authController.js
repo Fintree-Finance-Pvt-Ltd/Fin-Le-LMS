@@ -1,7 +1,9 @@
 const db = require("../config/db");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const ROLES = require("../constants/roles");
 
+const { sendResetOtp } = require("../services/passwordResetEmailService");
 
 // ======================================================
 // REGISTER
@@ -443,6 +445,336 @@ const logout = (req, res) => {
   });
 };
 
+// ======================================================
+// FORGOT PASSWORD - SEND OTP
+// ======================================================
+
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Email is required",
+      });
+    }
+
+    const cleanEmail = email
+      .trim()
+      .toLowerCase();
+
+    // Find registered user
+    const [users] = await db.execute(
+      `SELECT
+        id,
+        name,
+        email,
+        is_active
+       FROM users
+       WHERE email = ?
+       LIMIT 1`,
+      [cleanEmail]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).json({
+        message: "Email not found",
+      });
+    }
+
+    const user = users[0];
+
+    if (!user.is_active) {
+      return res.status(403).json({
+        message: "User account is inactive",
+      });
+    }
+
+    // Generate 6 digit OTP
+    const otp = crypto
+      .randomInt(100000, 1000000)
+      .toString();
+
+    // OTP valid for 10 minutes
+    const expiresAt = new Date(
+      Date.now() + 10 * 60 * 1000
+    );
+
+    // Remove previous OTPs
+    await db.execute(
+      `DELETE FROM reset_otps
+       WHERE user_id = ?`,
+      [user.id]
+    );
+
+    // Save new OTP
+    await db.execute(
+      `INSERT INTO reset_otps (
+        user_id,
+        email,
+        otp,
+        expires_at,
+        used
+      )
+      VALUES (?, ?, ?, ?, 0)`,
+      [
+        user.id,
+        user.email,
+        otp,
+        expiresAt,
+      ]
+    );
+
+    // Send OTP on email
+    await sendResetOtp({
+      to: user.email,
+      otp,
+    });
+
+    return res.status(200).json({
+      message:
+        "OTP sent to your registered email",
+    });
+
+  } catch (error) {
+    console.error(
+      "Forgot password error:",
+      error.message
+    );
+
+    return res.status(500).json({
+      message: "Unable to send OTP",
+    });
+  }
+};
+
+// ======================================================
+// VERIFY RESET OTP
+// ======================================================
+
+const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        message: "Email and OTP are required",
+      });
+    }
+
+    const cleanEmail = email
+      .trim()
+      .toLowerCase();
+
+    const [records] = await db.execute(
+      `SELECT
+        id,
+        user_id,
+        email,
+        otp,
+        expires_at,
+        used
+       FROM reset_otps
+       WHERE email = ?
+         AND otp = ?
+         AND used = 0
+         AND expires_at > NOW()
+       ORDER BY id DESC
+       LIMIT 1`,
+      [
+        cleanEmail,
+        String(otp).trim(),
+      ]
+    );
+
+    if (records.length === 0) {
+      return res.status(400).json({
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    return res.status(200).json({
+      message: "OTP verified successfully",
+    });
+  } catch (error) {
+    console.error(
+      "Verify OTP error:",
+      error.message
+    );
+
+    return res.status(500).json({
+      message: "Unable to verify OTP",
+    });
+  }
+};
+
+// ======================================================
+// RESET PASSWORD
+// ======================================================
+
+const resetPassword = async (req, res) => {
+  let connection;
+
+  try {
+    const {
+      email,
+      otp,
+      newPassword,
+      confirmPassword,
+    } = req.body;
+
+    if (
+      !email ||
+      !otp ||
+      !newPassword ||
+      !confirmPassword
+    ) {
+      return res.status(400).json({
+        message:
+          "Email, OTP, new password and confirm password are required",
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters long",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        message:
+          "New password and confirm password do not match",
+      });
+    }
+
+    const cleanEmail = email
+      .trim()
+      .toLowerCase();
+
+    connection = await db.getConnection();
+
+    await connection.beginTransaction();
+
+    const [records] = await connection.execute(
+      `SELECT
+        ro.id,
+        ro.user_id,
+        u.is_active
+       FROM reset_otps ro
+
+       INNER JOIN users u
+         ON u.id = ro.user_id
+
+       WHERE ro.email = ?
+         AND ro.otp = ?
+         AND ro.used = 0
+         AND ro.expires_at > NOW()
+
+       ORDER BY ro.id DESC
+       LIMIT 1
+
+       FOR UPDATE`,
+      [
+        cleanEmail,
+        String(otp).trim(),
+      ]
+    );
+
+    if (records.length === 0) {
+      await connection.rollback();
+
+      return res.status(400).json({
+        message: "Invalid or expired OTP",
+      });
+    }
+
+    const resetRecord = records[0];
+
+    if (!resetRecord.is_active) {
+      await connection.rollback();
+
+      return res.status(403).json({
+        message: "User account is inactive",
+      });
+    }
+
+    /*
+     * This is the important part.
+     *
+     * The plain new password is converted
+     * into a bcrypt hash.
+     */
+    const hashedPassword =
+      await bcrypt.hash(
+        newPassword,
+        10
+      );
+
+    /*
+     * Save the NEW hashed password
+     * in your existing users.password column.
+     */
+    await connection.execute(
+      `UPDATE users
+       SET password = ?
+       WHERE id = ?`,
+      [
+        hashedPassword,
+        resetRecord.user_id,
+      ]
+    );
+
+    /*
+     * Prevent this OTP from being used again.
+     */
+    await connection.execute(
+      `UPDATE reset_otps
+       SET used = 1
+       WHERE id = ?`,
+      [resetRecord.id]
+    );
+
+    /*
+     * Invalidate any remaining OTPs
+     * for the same user.
+     */
+    await connection.execute(
+      `UPDATE reset_otps
+       SET used = 1
+       WHERE user_id = ?
+         AND used = 0`,
+      [resetRecord.user_id]
+    );
+
+    await connection.commit();
+
+    return res.status(200).json({
+      message:
+        "Password reset successful. Please login with your new password.",
+    });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (_) {}
+    }
+
+    console.error(
+      "Reset password error:",
+      error.message
+    );
+
+    return res.status(500).json({
+      message: "Unable to reset password",
+    });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+};
 
 // ======================================================
 // EXPORTS
@@ -453,4 +785,7 @@ module.exports = {
   login,
   getMe,
   logout,
+  forgotPassword,
+  verifyOtp,
+  resetPassword
 };

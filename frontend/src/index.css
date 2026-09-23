@@ -54,3 +54,9 @@ body {
   toastSlideIn 0.35s ease-out;
 
 }
+
+/* Hide browser's default password reveal icon */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

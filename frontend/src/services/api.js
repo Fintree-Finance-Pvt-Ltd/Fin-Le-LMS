@@ -119,13 +119,11 @@ export const apiFetch = async (
     }
 
 
-
-
-
-
-
-    // SESSION EXPIRED
-if(response.status === 401){
+// SESSION EXPIRED
+if(
+  response.status === 401 &&
+  !options.skipAuthRedirect
+){
 
 
   const isLoginPage =
@@ -151,7 +149,6 @@ if(response.status === 401){
 
 
   }
-
 
 
   throw new Error(

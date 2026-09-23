@@ -12,6 +12,8 @@ const {
 
 const requireAuth = require("../middleware/authMiddleware");
 
+const authLimiter = require("../middleware/authLimiter");
+
 const router = express.Router();
 
 
@@ -23,7 +25,7 @@ const router = express.Router();
 router.post("/register",register);
 
 // Login
-router.post("/login",login);
+router.post("/login", authLimiter,login);
 
 
 // ======================================================

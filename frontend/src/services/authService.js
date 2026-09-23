@@ -6,21 +6,22 @@ export const authService = {
   // LOGIN
   // =====================================================
 
-  login: (credentials) => {
+ login: (credentials) => {
 
-    return apiFetch(
-      "/auth/login",
-      {
-        method: "POST",
+  return apiFetch(
+    "/auth/login",
+    {
+      method: "POST",
 
-        body: JSON.stringify(
-          credentials
-        ),
-      }
-    );
+      body: JSON.stringify(
+        credentials
+      ),
 
-  },
+      skipAuthRedirect: true,
+    }
+  );
 
+},
 
   // =====================================================
   // GET CURRENT USER

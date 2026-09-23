@@ -3,6 +3,16 @@ const bcrypt = require("bcrypt");
 const crypto = require("crypto");
 const ROLES = require("../constants/roles");
 
+const isProduction =
+  process.env.DEPLOYMENT_ENV === "production" ||
+  process.env.DEPLOYMENT_ENV === "uat";
+
+
+const sessionCookieSecure =
+  process.env.SESSION_COOKIE_SECURE === undefined
+    ? isProduction
+    : process.env.SESSION_COOKIE_SECURE === "true";
+
 const { sendResetOtp } = require("../services/passwordResetEmailService");
 
 // ======================================================
@@ -433,10 +443,19 @@ const logout = (req, res) => {
       });
     }
 
+    // res.clearCookie("connect.sid", {
+    //   httpOnly: true,
+    //   secure: false,
+    //   sameSite: "lax",
+    // });
+
     res.clearCookie("connect.sid", {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: sessionCookieSecure,
+      sameSite:
+        isProduction
+          ? "none"
+          : "lax",
     });
 
     return res.status(200).json({
@@ -758,7 +777,7 @@ const resetPassword = async (req, res) => {
     if (connection) {
       try {
         await connection.rollback();
-      } catch (_) {}
+      } catch (_) { }
     }
 
     console.error(

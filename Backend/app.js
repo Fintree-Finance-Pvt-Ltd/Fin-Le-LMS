@@ -118,18 +118,6 @@ app.use(
   }),
 );
 
-/*
- * Tighter limit on auth to slow down credential brute-forcing.
- */
-const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    message: "Too many attempts, please try again later.",
-  },
-});
 
 
 // IMPORTANT:
@@ -182,7 +170,7 @@ app.use(
       httpOnly:true,
 
 
-      secure:isProduction,
+      // secure:isProduction,
 
 
       sameSite:
@@ -246,7 +234,7 @@ app.get("/", (req, res) => {
 // NORMAL LMS ROUTES
 // ======================================================
 
-app.use("/api/auth", authRateLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 
 app.use("/api/admin",adminRoutes);
 

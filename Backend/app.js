@@ -252,6 +252,12 @@ app.use("/api/welcome-letter", welcomeLetterRoutes);
 
 app.use("/api/partner/v1", apiAuditMiddleware, plPartnerRoutes);
 
+// Partner webhook fallback alias (without /v1)
+app.post("/api/partner/webhook", apiAuditMiddleware, (req, res, next) => {
+  req.url = "/webhook";
+  return plPartnerRoutes(req, res, next);
+});
+
 app.use("/api/webhooks/easebuzz",easebuzzWebhookRoutes); // EASEBUZZ WEBHOOK ROUTES
 
 // Receives confirmed FTPL disbursals forwarded by Fintree LMS.

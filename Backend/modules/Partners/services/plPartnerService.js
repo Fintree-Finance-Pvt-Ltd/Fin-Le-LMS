@@ -5218,6 +5218,135 @@ async function getCustomerDetailsByLan(lan) {
 
 /*
 |--------------------------------------------------------------------------
+| HANDLE PARTNER / LOS WEBHOOK
+|--------------------------------------------------------------------------
+| Handles status events from LOS (e.g. loan rejection).
+| Updates loan status in LMS to REJECTED along with stage and reject reason.
+|--------------------------------------------------------------------------
+*/
+async function handlePartnerWebhook(payload = {}) {
+  const lan = String(
+    payload.lan ||
+    payload.LAN ||
+    payload.loan_account_number ||
+    payload.loanAccountNumber ||
+    ""
+  ).trim().toUpperCase();
+
+  if (!lan) {
+    throw apiError(400, "INVALID_REQUEST", "lan is required in webhook payload");
+  }
+
+  const incomingStatus = String(
+    payload.status ||
+    payload.Status ||
+    "REJECTED"
+  ).trim().toUpperCase();
+
+  const stage = String(
+    payload.stage ||
+    payload.Stage ||
+    "LOS_REJECTED"
+  ).trim();
+
+  const rejectReason = String(
+    payload.reject_reason ||
+    payload.rejectReason ||
+    payload.rejection_reason ||
+    payload.reason ||
+    payload.message ||
+    "Loan application rejected by LOS"
+  ).trim();
+
+  const rawTimestamp = payload.timestamp || payload.Timestamp;
+  const eventTime = rawTimestamp ? new Date(rawTimestamp) : new Date();
+  const validEventTime = isNaN(eventTime.getTime()) ? new Date() : eventTime;
+
+  // Find the loan application
+  const [apps] = await query(
+    `SELECT
+       id,
+       lan,
+       status,
+       partner_application_id,
+       customer_full_name,
+       bre_status,
+       bre_final_status
+     FROM pl_partner_applications
+     WHERE lan = ?
+     LIMIT 1`,
+    [lan]
+  );
+
+  if (!apps.length) {
+    throw apiError(
+      404,
+      "APPLICATION_NOT_FOUND",
+      `Loan application not found for LAN: ${lan}`
+    );
+  }
+
+  const application = apps[0];
+
+  // Prevent overwriting terminal DISBURSED status
+  if (application.status === "DISBURSED") {
+    console.warn(`[PARTNER WEBHOOK] Loan ${lan} is already DISBURSED; ignoring rejection event.`);
+    return {
+      lan,
+      status: application.status,
+      stage: application.stage || "DISBURSED",
+      message: "Application is already disbursed and cannot be marked as rejected",
+      ignored: true,
+      timestamp: validEventTime.toISOString(),
+    };
+  }
+
+  // Truncate to match varchar(100) column size for bre reasons
+  const truncatedReason = rejectReason.slice(0, 100);
+
+  // Update application status to REJECTED
+  await query(
+    `UPDATE pl_partner_applications
+     SET
+       status = 'REJECTED',
+       stage = ?,
+       reject_reason = ?,
+       rejected_at = ?,
+       bre_status = 'REJECTED',
+       bre_reason = ?,
+       bre_final_status = 'REJECTED',
+       bre_final_reason = ?,
+       updated_at = NOW(3)
+     WHERE id = ?`,
+    [
+      stage,
+      rejectReason,
+      validEventTime,
+      truncatedReason,
+      truncatedReason,
+      application.id,
+    ]
+  );
+
+  console.log(`[PARTNER WEBHOOK] Application ${lan} marked as REJECTED`, {
+    lan,
+    stage,
+    rejectReason,
+    applicationId: application.id,
+  });
+
+  return {
+    lan,
+    status: "REJECTED",
+    stage,
+    message: payload.message || "Loan application marked as rejected",
+    reject_reason: rejectReason,
+    timestamp: validEventTime.toISOString(),
+  };
+}
+
+/*
+|--------------------------------------------------------------------------
 | EXPORT
 |--------------------------------------------------------------------------
 */
@@ -5247,4 +5376,5 @@ module.exports = {
   getApprovedLoans,
   getPortfolioSummary,
   getCustomerDetailsByLan,
+  handlePartnerWebhook,
 };

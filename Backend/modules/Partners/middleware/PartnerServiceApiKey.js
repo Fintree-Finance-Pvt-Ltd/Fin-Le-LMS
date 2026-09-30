@@ -201,11 +201,25 @@ module.exports = function verifyPartnerApiKey(
     const apiKey =
       req.headers["x-api-key"];
 
-    const expectedApiKey =
-      process.env.FINTREE_API_KEY;
+    const rawEnvKey = process.env.FINTREE_API_KEY || "";
+    const configuredKeys = rawEnvKey
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+
+    // Allowed keys include configured keys, LOS_WEBHOOK_API_KEY, and contract default Fintree@2026
+    const allowedKeys = Array.from(
+      new Set(
+        [
+          ...configuredKeys,
+          process.env.LOS_WEBHOOK_API_KEY ? process.env.LOS_WEBHOOK_API_KEY.trim() : null,
+          "Fintree@2026",
+        ].filter(Boolean)
+      )
+    );
 
     // Server configuration issue
-    if (!expectedApiKey) {
+    if (allowedKeys.length === 0) {
       console.error(
         "FINTREE_API_KEY is not configured"
       );
@@ -238,7 +252,11 @@ module.exports = function verifyPartnerApiKey(
     }
 
     // Key incorrect
-    if (!timingSafeStringEqual(apiKey, expectedApiKey)) {
+    const isValid = allowedKeys.some((expected) =>
+      timingSafeStringEqual(apiKey, expected)
+    );
+
+    if (!isValid) {
       console.log(
         "FINTREE API authentication failed"
       );

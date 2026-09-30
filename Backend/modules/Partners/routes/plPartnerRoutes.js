@@ -627,4 +627,62 @@ router.post(
     }
   }
 );
+
+/*
+|--------------------------------------------------------------------------
+| 11. LOS / PARTNER WEBHOOK
+|--------------------------------------------------------------------------
+| Receives webhook notifications from LOS (e.g. case rejection).
+| Endpoint: POST /api/partner/v1/webhook (and /api/partner/v1/webhooks)
+|
+| Contract:
+|   Headers:
+|     Content-Type: application/json
+|     x-api-key: Fintree@2026
+|     X-Correlation-Id: <uuid-for-tracking>
+|     Idempotency-Key: <LAN>:LOS_REJECTED
+|   Body:
+|     {
+|       "lan": "FTPL00000043",
+|       "status": "REJECTED",
+|       "stage": "LOS_REJECTED",
+|       "message": "Loan application rejected",
+|       "reject_reason": "Bank verification failed (NAME_MISMATCH) / Credit review rejected",
+|       "timestamp": "2026-09-30T06:05:00.000Z"
+|     }
+|--------------------------------------------------------------------------
+*/
+router.post(["/webhook", "/webhooks"], async (req, res) => {
+  const lan = String(
+    req.body?.lan ||
+    req.body?.LAN ||
+    req.body?.loan_account_number ||
+    ""
+  ).trim().toUpperCase();
+
+  if (!lan) {
+    return fail(
+      res,
+      req,
+      400,
+      "INVALID_REQUEST",
+      "lan is required in webhook payload",
+    );
+  }
+
+  // Ensure an Idempotency-Key is present
+  if (!req.headers["idempotency-key"]) {
+    const stage = String(req.body?.stage || "LOS_REJECTED").trim();
+    req.headers["idempotency-key"] = `${lan}:${stage}`;
+  }
+
+  return runIdempotent(
+    req,
+    res,
+    () => partnerService.handlePartnerWebhook(req.body),
+    200,
+  );
+});
+
 module.exports = router;
+

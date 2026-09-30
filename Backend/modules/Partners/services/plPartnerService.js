@@ -5,6 +5,10 @@ const path = require("path");
 const db = require("../../../config/db");
 const { runPlPartnerBre } = require("./PartnerBre");
 const getService = require("./partnerGetService");
+const {
+  sendPlPartnerRejectionWebhook,
+  rejectLoanByLan,
+} = require("./partnerLoanService");
 
 const {
   query,
@@ -5377,4 +5381,6 @@ module.exports = {
   getPortfolioSummary,
   getCustomerDetailsByLan,
   handlePartnerWebhook,
+  sendPlPartnerRejectionWebhook,
+  rejectLoanByLan,
 };

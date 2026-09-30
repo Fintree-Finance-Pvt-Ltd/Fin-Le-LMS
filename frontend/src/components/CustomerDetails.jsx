@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 import {
     ArrowLeft,
@@ -16,6 +17,8 @@ import {
     AlertCircle,
 } from "lucide-react";
 
+import { rejectLoan } from "../services/loanService";
+
 
 function CustomerDetails() {
 
@@ -28,6 +31,37 @@ function CustomerDetails() {
     const [loading, setLoading] = useState(true);
 
     const [error, setError] = useState("");
+
+    const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+    const [rejectReason, setRejectReason] = useState("");
+    const [customReason, setCustomReason] = useState("");
+    const [rejecting, setRejecting] = useState(false);
+
+    const handleRejectConfirm = async () => {
+        const finalReason =
+            rejectReason === "Other"
+                ? customReason.trim()
+                : (rejectReason || customReason).trim();
+
+        if (!finalReason) {
+            toast.error("Please provide a rejection reason");
+            return;
+        }
+
+        setRejecting(true);
+        try {
+            await rejectLoan(lan, { rejectReason: finalReason });
+            toast.success("Case rejected successfully! LOS notified.");
+            setIsRejectModalOpen(false);
+            setRejectReason("");
+            setCustomReason("");
+            await fetchCustomerDetails();
+        } catch (err) {
+            toast.error(err.message || "Failed to reject loan");
+        } finally {
+            setRejecting(false);
+        }
+    };
 
 
     // =====================================================
@@ -911,11 +945,42 @@ function CustomerDetails() {
                     </div>
 
 
-                    <StatusBadge
-                        value={data?.loanStatus}
-                    />
+                    <div className="flex flex-wrap items-center gap-3">
+                        <StatusBadge
+                            value={data?.loanStatus}
+                        />
+
+                        {!String(data?.loanStatus || "").toUpperCase().includes("REJECTED") &&
+                         !String(data?.loanStatus || "").toUpperCase().includes("DISBURSED") && (
+                            <button
+                                onClick={() => setIsRejectModalOpen(true)}
+                                className="
+                                  inline-flex items-center gap-1.5
+                                  rounded-xl border border-red-200 bg-red-50
+                                  px-3.5 py-1.5 text-xs font-semibold text-red-700
+                                  shadow-sm transition-all duration-150
+                                  hover:bg-red-100 hover:border-red-300
+                                "
+                            >
+                                <XCircle size={14} />
+                                Reject Case
+                            </button>
+                        )}
+                    </div>
 
                 </div>
+
+                {String(data?.loanStatus || "").toUpperCase().includes("REJECTED") && (
+                    <div className="mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-800">
+                        <AlertCircle size={18} className="text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-semibold text-red-900">Application Rejected</p>
+                            <p className="mt-0.5 text-red-700">
+                                {data?.bre?.finalReason || data?.bre?.reason || "This loan application was marked as rejected."}
+                            </p>
+                        </div>
+                    </div>
+                )}
 
             </div>
 
@@ -1737,6 +1802,91 @@ function CustomerDetails() {
 
 
             </div>
+
+            {/* =================================================
+                REJECT CASE MODAL
+            ================================================= */}
+            {isRejectModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+                        <div className="flex items-center gap-3 text-red-600 mb-4">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                                <XCircle size={22} />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-slate-900">Reject Loan Application</h3>
+                                <p className="text-xs text-slate-500">LAN: {lan}</p>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-slate-600 mb-4">
+                            Rejecting this loan in Fin-Le-LMS will mark the case as <strong>REJECTED</strong> and automatically dispatch a webhook to <strong>LOS</strong> to update their system.
+                        </p>
+
+                        <div className="space-y-3 mb-5">
+                            <label className="block text-xs font-semibold text-slate-700">
+                                Select Rejection Reason
+                            </label>
+                            <select
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-800 focus:border-red-400 focus:bg-white focus:outline-none"
+                            >
+                                <option value="">-- Choose reason --</option>
+                                <option value="Bank verification failed (NAME_MISMATCH)">Bank verification failed (NAME_MISMATCH)</option>
+                                <option value="Credit review rejected">Credit review rejected</option>
+                                <option value="KYC / Document verification failed">KYC / Document verification failed</option>
+                                <option value="TrackWizz AML / Sanctions review rejected">TrackWizz AML / Sanctions review rejected</option>
+                                <option value="Customer requested cancellation">Customer requested cancellation</option>
+                                <option value="Other">Other / Custom Reason</option>
+                            </select>
+
+                            {(rejectReason === "Other" || !rejectReason) && (
+                                <textarea
+                                    value={customReason}
+                                    onChange={(e) => setCustomReason(e.target.value)}
+                                    placeholder="Enter detailed rejection remarks..."
+                                    rows={3}
+                                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-800 focus:border-red-400 focus:bg-white focus:outline-none"
+                                />
+                            )}
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                disabled={rejecting}
+                                onClick={() => {
+                                    setIsRejectModalOpen(false);
+                                    setRejectReason("");
+                                    setCustomReason("");
+                                }}
+                                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={rejecting}
+                                onClick={handleRejectConfirm}
+                                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 transition disabled:opacity-50"
+                            >
+                                {rejecting ? (
+                                    <>
+                                        <RefreshCw size={13} className="animate-spin" />
+                                        Rejecting &amp; Notifying LOS...
+                                    </>
+                                ) : (
+                                    <>
+                                        <XCircle size={14} />
+                                        Confirm Rejection
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
 

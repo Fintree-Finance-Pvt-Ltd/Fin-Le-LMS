@@ -251,3 +251,16 @@ export const getDisbursedLoans = async ({
   return result.data;
 
 };
+
+// ======================================================
+// REJECT LOAN (NOTIFIES LOS)
+// ======================================================
+
+export const rejectLoan = async (lan, { rejectReason, stage } = {}) => {
+  const result = await apiFetch(`/loans/${lan}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ rejectReason, stage }),
+  });
+
+  return result;
+};

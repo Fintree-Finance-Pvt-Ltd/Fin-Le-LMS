@@ -202,6 +202,295 @@ async function sendPlPartnerDisbursalWebhook({
   };
 }
 
+/*
+|--------------------------------------------------------------------------
+| REJECTION WEBHOOK (OUTBOUND TO LOS)
+|--------------------------------------------------------------------------
+| When LMS rejects an application, this notifies LOS so LOS updates its state.
+|--------------------------------------------------------------------------
+*/
+async function sendPlPartnerRejectionWebhook({
+  lan,
+  rejectReason,
+  stage = "LMS_REJECTED",
+  rejectedBy = "LMS",
+  correlationId = null,
+  timestamp = null,
+}) {
+  lan = String(lan || "").trim().toUpperCase();
+
+  const primaryUrl =
+    String(process.env.LOS_REJECTION_WEBHOOK_URL || "").trim() ||
+    (String(process.env.PLP_BASE_URL || "").trim().replace(/\/+$/, "")
+      ? `${String(process.env.PLP_BASE_URL).trim().replace(/\/+$/, "")}/api/webhooks/lenders/FFPL2026/rejection`
+      : "");
+
+  const fallbackUrl =
+    String(process.env.LOS_FALLBACK_REJECTION_WEBHOOK_URL || "").trim() ||
+    (String(process.env.PLP_BASE_URL || "").trim().replace(/\/+$/, "")
+      ? `${String(process.env.PLP_BASE_URL).trim().replace(/\/+$/, "")}/api/webhooks/rejection`
+      : "");
+
+  const candidateUrls = Array.from(
+    new Set([primaryUrl, fallbackUrl].filter(Boolean))
+  );
+
+  const safeTimestamp = timestamp
+    ? (timestamp instanceof Date ? timestamp.toISOString() : new Date(timestamp).toISOString())
+    : new Date().toISOString();
+
+  const payload = {
+    lan,
+    status: "REJECTED",
+    stage: stage || "LMS_REJECTED",
+    message: "Loan application rejected by LMS",
+    reject_reason: rejectReason || "Loan application rejected by LMS",
+    rejected_by: rejectedBy || "LMS",
+    timestamp: safeTimestamp,
+  };
+
+  const uniqueRequestNumber = `REJ_${lan}_${Date.now()}`;
+  const effectiveCorrelationId = correlationId || crypto.randomUUID();
+  const apiKey = String(process.env.LOS_WEBHOOK_API_KEY || "Fintree@2026").trim();
+  const webhookSecret = String(
+    process.env.PLP_DISBURSAL_WEBHOOK_SECRET ||
+    process.env.PL_WEBHOOK_SECRET ||
+    process.env.DISBURSAL_WEBHOOK_SECRET ||
+    ""
+  ).trim();
+
+  // If no webhook URL is configured, record in outbox and return
+  if (candidateUrls.length === 0) {
+    console.warn(`[LOS OUTBOUND REJECTION] No webhook URL configured for rejection (LOS_REJECTION_WEBHOOK_URL). Skipped sending.`);
+    try {
+      await db.query(
+        `INSERT INTO pl_rejection_webhook_deliveries
+           (unique_request_number, lan, payload, delivery_status, webhook_url, last_error)
+         VALUES (?, ?, ?, 'SKIPPED_NO_URL', ?, ?)
+         ON DUPLICATE KEY UPDATE updated_at = NOW()`,
+        [
+          uniqueRequestNumber,
+          lan,
+          JSON.stringify(payload),
+          null,
+          "LOS_REJECTION_WEBHOOK_URL not configured",
+        ]
+      );
+    } catch (dbErr) {
+      console.error("[LOS OUTBOUND REJECTION] Outbox record error:", dbErr.message);
+    }
+
+    return {
+      status: "SKIPPED_NO_URL",
+      delivered: false,
+      message: "LOS_REJECTION_WEBHOOK_URL is not configured; rejection recorded in LMS",
+      payload,
+    };
+  }
+
+  let deliveryStatus = "FAILED";
+  let responseData = null;
+  let lastError = null;
+  let deliveredAt = null;
+  let usedWebhookUrl = candidateUrls[0];
+
+  const headers = {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey,
+    "X-Correlation-Id": effectiveCorrelationId,
+    "Idempotency-Key": `${lan}:LMS_REJECTED`,
+    ...(webhookSecret
+      ? {
+          "x-pl-webhook-secret": webhookSecret,
+          "x-lender-webhook-secret": webhookSecret,
+          "x-disbursal-webhook-secret": webhookSecret,
+          "x-webhook-secret": webhookSecret,
+        }
+      : {}),
+  };
+
+  for (const targetUrl of candidateUrls) {
+    usedWebhookUrl = targetUrl;
+    try {
+      const response = await axios.post(targetUrl, payload, {
+        headers,
+        timeout: 15000,
+      });
+
+      deliveryStatus = "DELIVERED";
+      responseData = typeof response.data === "object" ? JSON.stringify(response.data) : String(response.data);
+      deliveredAt = new Date();
+      lastError = null;
+
+      console.log(`[LOS OUTBOUND REJECTION] Rejection webhook delivered to LOS successfully`, {
+        lan,
+        webhookUrl: targetUrl,
+        status: response.status,
+      });
+
+      break;
+    } catch (error) {
+      lastError = error.response
+        ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`
+        : error.message;
+
+      console.warn(`[LOS OUTBOUND REJECTION] Attempt to ${targetUrl} failed: ${lastError}. Trying fallback if available...`);
+    }
+  }
+
+  if (deliveryStatus === "DELIVERED") {
+    return {
+      status: "DELIVERED",
+      delivered: true,
+      statusCode: 200,
+      response: responseData,
+      webhook_url: usedWebhookUrl,
+      payload,
+    };
+  } catch (error) {
+    lastError = error.response
+      ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`
+      : error.message;
+
+    console.error(`[LOS OUTBOUND REJECTION] Failed to deliver rejection webhook to LOS`, {
+      lan,
+      webhookUrl,
+      error: lastError,
+    });
+
+    return {
+      status: "FAILED",
+      delivered: false,
+      error: lastError,
+      webhook_url: webhookUrl,
+      payload,
+    };
+  } finally {
+    try {
+      await db.query(
+        `INSERT INTO pl_rejection_webhook_deliveries
+           (unique_request_number, lan, payload, delivery_status, webhook_url, webhook_response, last_error, delivered_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           delivery_status = VALUES(delivery_status),
+           webhook_response = VALUES(webhook_response),
+           last_error = VALUES(last_error),
+           delivered_at = VALUES(delivered_at),
+           updated_at = NOW()`,
+        [
+          uniqueRequestNumber,
+          lan,
+          JSON.stringify(payload),
+          deliveryStatus,
+          webhookUrl,
+          responseData,
+          lastError,
+          deliveredAt,
+        ]
+      );
+    } catch (dbErr) {
+      console.error("[LOS OUTBOUND REJECTION] Failed to update outbox record:", dbErr.message);
+    }
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| REJECT LOAN BY LAN (INITIATED FROM LMS)
+|--------------------------------------------------------------------------
+| Rejects the application in LMS and dispatches outbound webhook to LOS.
+|--------------------------------------------------------------------------
+*/
+async function rejectLoanByLan({
+  lan,
+  rejectReason = "Rejected by LMS Credit/Operations",
+  stage = "LMS_REJECTED",
+  rejectedBy = "LMS User",
+  correlationId = null,
+}) {
+  lan = String(lan || "").trim().toUpperCase();
+
+  if (!lan) {
+    throw apiError(400, "INVALID_REQUEST", "lan is required");
+  }
+
+  const [apps] = await query(
+    `SELECT id, lan, status, partner_application_id, customer_full_name, bre_status, bre_final_status
+     FROM pl_partner_applications
+     WHERE lan = ?
+     LIMIT 1`,
+    [lan]
+  );
+
+  if (!apps.length) {
+    throw apiError(404, "APPLICATION_NOT_FOUND", `Application not found for LAN: ${lan}`);
+  }
+
+  const app = apps[0];
+
+  if (app.status === "DISBURSED") {
+    throw apiError(409, "APPLICATION_ALREADY_DISBURSED", `Application ${lan} is already disbursed and cannot be rejected`);
+  }
+
+  const rejectedAt = new Date();
+  const truncatedReason = String(rejectReason || "Rejected by LMS").slice(0, 100);
+
+  // Update in LMS database
+  await query(
+    `UPDATE pl_partner_applications
+     SET
+       status = 'REJECTED',
+       stage = ?,
+       reject_reason = ?,
+       rejected_at = ?,
+       bre_status = 'REJECTED',
+       bre_reason = ?,
+       bre_final_status = 'REJECTED',
+       bre_final_reason = ?,
+       updated_at = NOW(3)
+     WHERE id = ?`,
+    [
+      stage,
+      rejectReason,
+      rejectedAt,
+      truncatedReason,
+      truncatedReason,
+      app.id,
+    ]
+  );
+
+  console.log(`[LMS REJECT] Application ${lan} marked as REJECTED in LMS. Reason: ${rejectReason}`);
+
+  // Send outbound webhook to LOS
+  let losWebhookResult = null;
+  try {
+    losWebhookResult = await sendPlPartnerRejectionWebhook({
+      lan,
+      rejectReason,
+      stage,
+      rejectedBy,
+      correlationId,
+      timestamp: rejectedAt,
+    });
+  } catch (webhookErr) {
+    console.error(`[LMS REJECT] Failed to send outbound rejection webhook to LOS for ${lan}:`, webhookErr.message);
+    losWebhookResult = {
+      status: "FAILED",
+      delivered: false,
+      error: webhookErr.message,
+    };
+  }
+
+  return {
+    lan,
+    status: "REJECTED",
+    stage,
+    reject_reason: rejectReason,
+    rejected_at: rejectedAt.toISOString(),
+    los_webhook: losWebhookResult,
+  };
+}
+
 async function triggerEasebuzzPayout({
   app,
   amount,
@@ -1914,6 +2203,8 @@ module.exports = {
   // Keep the LMS -> LOS notification contract in one place.
   recordPlPartnerDisbursement,
   sendPlPartnerDisbursalWebhook,
+  sendPlPartnerRejectionWebhook,
+  rejectLoanByLan,
   recordRepayment,
   addExtraCharge,
   waiveExtraCharge,

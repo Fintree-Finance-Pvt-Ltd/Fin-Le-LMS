@@ -338,15 +338,19 @@ async function sendPlPartnerRejectionWebhook({
     }
   }
 
-  if (deliveryStatus === "DELIVERED") {
-    return {
-      status: "DELIVERED",
-      delivered: true,
-      statusCode: 200,
-      response: responseData,
-      webhook_url: usedWebhookUrl,
-      payload,
-    };
+  try {
+    if (deliveryStatus === "DELIVERED") {
+      return {
+        status: "DELIVERED",
+        delivered: true,
+        statusCode: 200,
+        response: responseData,
+        webhook_url: usedWebhookUrl,
+        payload,
+      };
+    }
+
+    throw new Error(lastError || "Rejection webhook delivery failed");
   } catch (error) {
     lastError = error.response
       ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`

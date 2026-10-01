@@ -55,7 +55,8 @@ export const permissionGroups = [
       {
         label:"Portfolio Overview",
         path:"/portfolio",
-        icon: Gauge
+        icon: Gauge,
+        permission:"loans.portfolio.view"
       },
 
       {

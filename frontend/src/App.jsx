@@ -210,7 +210,9 @@ function App() {
           <Route
             path="portfolio"
             element={
-              <PortfolioDashboard />
+              <RequirePermission permission="loans.portfolio.view">
+                <PortfolioDashboard />
+              </RequirePermission>
             }
           />
 

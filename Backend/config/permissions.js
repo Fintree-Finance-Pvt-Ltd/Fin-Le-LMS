@@ -28,6 +28,13 @@ const PERMISSIONS = Object.freeze([
   },
 
   {
+    code: "loans.portfolio.view",
+    name: "Portfolio Overview",
+    description: "Access Portfolio Overview",
+    route: "/portfolio",
+  },
+
+  {
     code: "loans.all",
     name: "All Loans",
     description: "Access All Loans",

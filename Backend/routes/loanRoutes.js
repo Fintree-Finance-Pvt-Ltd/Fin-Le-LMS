@@ -3,6 +3,9 @@ const express = require("express");
 const requireAuth =
   require("../middleware/authMiddleware");
 
+const requirePermission =
+  require("../middleware/permissionMiddleware");
+
 const service =
   require("../modules/Partners/services/plPartnerService");
 
@@ -47,6 +50,7 @@ router.get("/customer-details/:lan", requireAuth, async (req, res) => {
 router.get(
   "/portfolio-summary",
   requireAuth,
+  requirePermission("loans.portfolio.view"),
   async (req, res) => {
     try {
       const data =

@@ -65,6 +65,58 @@ const upload = multer({
 
 
 
+const { generateCibilPdfForLan } = require("../services/cibilPdfService");
+
+/*
+|--------------------------------------------------------------------------
+| GET CIBIL / BUREAU PDF REPORT
+|--------------------------------------------------------------------------
+*/
+
+router.get("/bureau/:lan", async (req, res) => {
+    try {
+        const result = await generateCibilPdfForLan(req.params.lan);
+
+        if (!result || !result.filePath || !fs.existsSync(result.filePath)) {
+            return res.status(404).send("Bureau PDF report not found for this LAN");
+        }
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+            "Content-Disposition",
+            `inline; filename="CIBIL_Report_${req.params.lan}.pdf"`
+        );
+
+        return res.sendFile(path.resolve(result.filePath));
+    } catch (error) {
+        console.error("GET BUREAU REPORT ERROR:", error);
+        return res.status(500).send(error.message);
+    }
+});
+
+router.get("/bureau/:lan/xml", async (req, res) => {
+    try {
+        const report = await documentService.getBureauReport(req.params.lan);
+
+        if (!report) {
+            return res.status(404).send("Bureau raw report not found for this LAN");
+        }
+
+        res.setHeader("Content-Type", "application/xml; charset=utf-8");
+        res.setHeader(
+            "Content-Disposition",
+            `inline; filename="bureau_report_${req.params.lan}.xml"`
+        );
+
+        return res.send(report);
+    } catch (error) {
+        console.error("GET BUREAU RAW XML ERROR:", error);
+        return res.status(500).send(error.message);
+    }
+});
+
+
+
 /*
 |--------------------------------------------------------------------------
 | GET DOCUMENTS

@@ -449,7 +449,7 @@ const logout = (req, res) => {
       httpOnly: true,
       secure: sessionCookieSecure,
       sameSite:
-        isProduction
+        sessionCookieSecure
           ? "none"
           : "lax",
     });

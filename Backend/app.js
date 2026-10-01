@@ -174,7 +174,7 @@ app.use(
 
 
       sameSite:
-        isProduction
+        sessionCookieSecure
           ? "none"
           : "lax",
 

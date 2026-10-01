@@ -13,6 +13,10 @@ import axios from "axios";
 
 import "../styles/Documents.css";
 
+const API_BASE = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
+    : "http://localhost:5004";
+
 const Documents = ({ lan }) => {
 
 
@@ -29,7 +33,8 @@ const Documents = ({ lan }) => {
 
             const res =
             await axios.get(
-                `/api/documents/${lan}`
+                `${API_BASE}/api/documents/${lan}`,
+                { withCredentials: true }
             );
 
 
@@ -41,7 +46,7 @@ const Documents = ({ lan }) => {
         }
         catch(error){
 
-            console.log(error);
+            console.error("Fetch documents error:", error);
 
         }
 
@@ -118,8 +123,9 @@ const uploadDocument = async () => {
 
 
         await axios.post(
-            "/api/documents/upload",
-            formData
+            `${API_BASE}/api/documents/upload`,
+            formData,
+            { withCredentials: true }
         );
 
 
@@ -171,7 +177,8 @@ const uploadDocument = async () => {
 
 
         await axios.delete(
-            `/api/documents/${id}`
+            `${API_BASE}/api/documents/${id}`,
+            { withCredentials: true }
         );
 
 
@@ -180,15 +187,21 @@ const uploadDocument = async () => {
     };
 
 
-
+    const getFileUrl = (sourceUrl) => {
+        if (!sourceUrl) return "";
+        if (sourceUrl.startsWith("http://") || sourceUrl.startsWith("https://")) {
+            return sourceUrl;
+        }
+        return `${API_BASE}${sourceUrl.startsWith("/") ? "" : "/"}${sourceUrl}`;
+    };
 
 
     const previewDocument=(doc)=>{
 
-        window.open(
-            doc.source_url,
-            "_blank"
-        );
+        const url = getFileUrl(doc.source_url);
+        if (url) {
+            window.open(url, "_blank");
+        }
 
     };
 
@@ -197,10 +210,10 @@ const uploadDocument = async () => {
 
     const downloadDocument=(doc)=>{
 
-        window.open(
-            doc.source_url,
-            "_blank"
-        );
+        const url = getFileUrl(doc.source_url);
+        if (url) {
+            window.open(url, "_blank");
+        }
 
     };
 
@@ -439,6 +452,13 @@ ACTIONS
 
 
 {
+documents.length === 0 ? (
+  <tr>
+    <td colSpan="4" style={{ textAlign: "center", padding: "30px", color: "#6b7280" }}>
+      No documents found for this loan. You can upload new documents above.
+    </td>
+  </tr>
+) : (
 documents.map((doc)=>(
 
 
@@ -473,6 +493,7 @@ doc.uploaded_at
 <button
 className="action-btn"
 onClick={()=>previewDocument(doc)}
+title="View Document"
 >
 
 <FiEye/>
@@ -485,6 +506,7 @@ onClick={()=>previewDocument(doc)}
 <button
 className="action-btn"
 onClick={()=>downloadDocument(doc)}
+title="Download Document"
 >
 
 <FiDownload/>
@@ -496,6 +518,7 @@ onClick={()=>downloadDocument(doc)}
 
 <button
 className="action-btn"
+title="Refresh"
 >
 
 <FiRefreshCw/>
@@ -513,6 +536,7 @@ className="delete-btn"
 onClick={()=>
 deleteDocument(doc.id)
 }
+title="Delete Document"
 
 >
 
@@ -529,7 +553,7 @@ deleteDocument(doc.id)
 
 
 ))
-
+)
 }
 
 

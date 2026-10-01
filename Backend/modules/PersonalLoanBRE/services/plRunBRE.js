@@ -22,6 +22,10 @@ const {
     screenLoanBooking
 } = require("../../../services/trackwizz/screeningService");
 
+const {
+    generateCibilPdfForLan
+} = require("../../../services/cibilPdfService");
+
 
 const AML_SCREENING_PRODUCT = "fintreepl";
 
@@ -771,6 +775,11 @@ const runPLBRE = async (lan) => {
                     lan
                 ]
             );
+
+            // Automatically generate and persist CIBIL PDF report in background
+            generateCibilPdfForLan(lan).catch((err) => {
+                console.error(`[BRE] Error generating CIBIL PDF for ${lan}:`, err.message);
+            });
         }
 
 

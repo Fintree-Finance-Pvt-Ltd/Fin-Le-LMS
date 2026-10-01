@@ -34,6 +34,7 @@ export const authService = {
       {
         method: "GET",
         skipLoader: true,
+        skipAuthRedirect: true,
       }
     );
 

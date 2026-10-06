@@ -13,7 +13,6 @@ async function executeIdempotent({
   operation,
   successStatus = 200,
 }) {
-
   if (!idempotencyKey) {
     throw apiError(
       400,
@@ -22,31 +21,20 @@ async function executeIdempotent({
     );
   }
 
+  const clientId = getClientId();
 
-  const clientId =
-    getClientId();
+  const requestHash = makeHash(payload);
 
-  const requestHash =
-    makeHash(payload);
-
-
-  const [rows] =
-    await query(
-      `SELECT *
+  const [rows] = await query(
+    `SELECT *
        FROM pl_partner_idempotency_records
        WHERE client_id = ?
          AND idempotency_key = ?
        LIMIT 1`,
-      [
-        clientId,
-        idempotencyKey,
-      ],
-    );
+    [clientId, idempotencyKey],
+  );
 
-
-  const existing =
-    rows[0];
-
+  const existing = rows[0];
 
   /*
   |--------------------------------------------------------------------------
@@ -54,7 +42,6 @@ async function executeIdempotent({
   |--------------------------------------------------------------------------
   */
   if (existing) {
-
     /*
     | Already completed — this is the only state where "same key must
     | mean same payload" actually protects anything, since real work
@@ -62,15 +49,8 @@ async function executeIdempotent({
     | conflict: the caller is trying to reuse a key for a different
     | operation than the one that already succeeded.
     */
-    if (
-      existing.processing_status ===
-      "COMPLETED"
-    ) {
-
-      if (
-        existing.request_hash !==
-        requestHash
-      ) {
+    if (existing.processing_status === "COMPLETED") {
+      if (existing.request_hash !== requestHash) {
         throw apiError(
           409,
           "IDEMPOTENCY_CONFLICT",
@@ -79,19 +59,13 @@ async function executeIdempotent({
       }
 
       return {
-        statusCode:
-          existing.response_status ||
-          successStatus,
+        statusCode: existing.response_status || successStatus,
 
-        data:
-          existing.response_body
-            ? JSON.parse(
-              existing.response_body,
-            )
-            : null,
+        data: existing.response_body
+          ? JSON.parse(existing.response_body)
+          : null,
       };
     }
-
 
     /*
     | Not completed (FAILED, or a stale PROCESSING left behind by a
@@ -112,9 +86,7 @@ async function executeIdempotent({
        WHERE id = ?`,
       [requestHash, existing.id],
     );
-
   } else {
-
     /*
     |--------------------------------------------------------------------------
     | FIRST REQUEST
@@ -140,22 +112,12 @@ async function executeIdempotent({
         NOW(3),
         NOW(3)
       )`,
-      [
-        clientId,
-        idempotencyKey,
-        method,
-        endpoint,
-        requestHash,
-      ],
+      [clientId, idempotencyKey, method, endpoint, requestHash],
     );
   }
 
-
   try {
-
-    const data =
-      await operation();
-
+    const data = await operation();
 
     await query(
       `UPDATE pl_partner_idempotency_records
@@ -168,25 +130,15 @@ async function executeIdempotent({
 
        WHERE client_id = ?
          AND idempotency_key = ?`,
-      [
-        successStatus,
-        JSON.stringify(data),
-
-        clientId,
-        idempotencyKey,
-      ],
+      [successStatus, JSON.stringify(data), clientId, idempotencyKey],
     );
 
-
     return {
-      statusCode:
-        successStatus,
+      statusCode: successStatus,
 
       data,
     };
-
   } catch (error) {
-
     await query(
       `UPDATE pl_partner_idempotency_records
        SET
@@ -204,19 +156,15 @@ async function executeIdempotent({
         error.statusCode || 500,
 
         JSON.stringify({
-          code:
-            error.code ||
-            "SERVER_ERROR",
+          code: error.code || "SERVER_ERROR",
 
-          message:
-            error.message,
+          message: error.message,
         }),
 
         clientId,
         idempotencyKey,
       ],
     );
-
 
     throw error;
   }
@@ -227,7 +175,6 @@ async function executeIdempotent({
 | ADD EXTRA CHARGES
 |--------------------------------------------------------------------------
 */
-
 
 module.exports = {
   executeIdempotent,

@@ -28,17 +28,11 @@ const easebuzzWebhookRoutes = require("./modules/Partners/routes/easebuzzWebhook
 const fintreeDisbursalWebhookRoutes = require("./modules/Partners/routes/fintreeDisbursalWebhookRoutes");
 const plBreRoutes = require("./modules/PersonalLoanBRE/routes/plBreRoutes");
 
-const welcomeLetterRoutes =
-require("./routes/welcomeLetterRoutes");
+const welcomeLetterRoutes = require("./routes/welcomeLetterRoutes");
 
-const {
-  syncPermissions,
-} = require("./services/permissionSyncService");
+const { syncPermissions } = require("./services/permissionSyncService");
 
-const {
-  recalculateDpd,
-} = require("./services/dpdService");
-
+const { recalculateDpd } = require("./services/dpdService");
 
 const app = express();
 
@@ -72,7 +66,6 @@ const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-
 // ======================================================
 // MIDDLEWARE
 // ======================================================
@@ -101,9 +94,8 @@ app.use(
       return callback(new Error("Origin not allowed by CORS"));
     },
     credentials: true,
-  })
+  }),
 );
-
 
 /*
  * General rate limit as a baseline defense against flooding/abuse across
@@ -118,8 +110,6 @@ app.use(
   }),
 );
 
-
-
 // IMPORTANT:
 // Partner docs API contains contentBase64,
 // so increase JSON body size.
@@ -128,7 +118,6 @@ app.use(
     limit: "20mb",
   }),
 );
-
 
 // app.use(
 //   session({
@@ -153,44 +142,23 @@ app.use(
 
 app.use(
   session({
+    secret: process.env.SESSION_SECRET,
 
-    secret:
-      process.env.SESSION_SECRET,
+    resave: false,
 
+    saveUninitialized: false,
 
-    resave:false,
-
-
-    saveUninitialized:false,
-
-
-    cookie:{
-
-
-      httpOnly:true,
-
+    cookie: {
+      httpOnly: true,
 
       // secure:isProduction,
 
+      sameSite: sessionCookieSecure ? "none" : "lax",
 
-      sameSite:
-        sessionCookieSecure
-          ? "none"
-          : "lax",
-
-
-      maxAge:
-        1000 *
-        60 *
-        60 *
-        24,
+      maxAge: 1000 * 60 * 60 * 24,
       secure: sessionCookieSecure,
-
-
     },
-
-
-  })
+  }),
 );
 
 app.use((req, res, next) => {
@@ -209,26 +177,15 @@ app.use((req, res, next) => {
 
 // app.use(apiAuditMiddleware);
 
-app.use(
-    "/uploads",
-    express.static(
-        path.join(
-            __dirname,
-            "uploads"
-        )
-    )
-);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ======================================================
 // ROOT
 // ======================================================
 
 app.get("/", (req, res) => {
-  res.send(
-    "Personal Loan LMS API is running"
-  );
+  res.send("Personal Loan LMS API is running");
 });
-
 
 // ======================================================
 // NORMAL LMS ROUTES
@@ -236,13 +193,13 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 
-app.use("/api/admin",adminRoutes);
+app.use("/api/admin", adminRoutes);
 
-app.use("/api/operations",operationsRoutes);
+app.use("/api/operations", operationsRoutes);
 
-app.use("/api/credit",creditRoutes);
+app.use("/api/credit", creditRoutes);
 
-app.use("/api/user",userRoutes);
+app.use("/api/user", userRoutes);
 
 app.use("/api/welcome-letter", welcomeLetterRoutes);
 
@@ -258,48 +215,40 @@ app.post("/api/partner/webhook", apiAuditMiddleware, (req, res, next) => {
   return plPartnerRoutes(req, res, next);
 });
 
-app.use("/api/webhooks/easebuzz",easebuzzWebhookRoutes); // EASEBUZZ WEBHOOK ROUTES
+app.use("/api/webhooks/easebuzz", easebuzzWebhookRoutes); // EASEBUZZ WEBHOOK ROUTES
 
 // Receives confirmed FTPL disbursals forwarded by Fintree LMS.
 app.use("/api/webhooks", fintreeDisbursalWebhookRoutes);
 
-app.use("/api/personal-loan/bre",plBreRoutes);  // PERSONAL LOAN BRE ROUTES
+app.use("/api/personal-loan/bre", plBreRoutes); // PERSONAL LOAN BRE ROUTES
 
-app.use("/api/loans",loanRoutes);
+app.use("/api/loans", loanRoutes);
 
 app.use("/api/disbursal", disbursalRoutes);
 
 app.use("/api/schedule", scheduleRoutes);
 
-app.use( "/api/extra-charges", extraChargesRoutes);
+app.use("/api/extra-charges", extraChargesRoutes);
 
-app.use( "/api/documents", documentRoutes);
+app.use("/api/documents", documentRoutes);
 
-app.use( "/api/reports", reportsRoutes);
+app.use("/api/reports", reportsRoutes);
 
 // ======================================================
 // START SERVER
 // ======================================================
 
-const PORT =
-  process.env.PORT || 5000;
-
+const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
-
     // 1. Check database
     await db.query("SELECT 1");
 
-
-    console.log(
-      "MySQL database connected successfully"
-    );
-
+    console.log("MySQL database connected successfully");
 
     // 2. Sync permissions
     await syncPermissions();
-
 
     // 3. Recalculate DPD once at boot, then daily at 00:05 —
     // manual_rps_fintree_personal_loan.dpd was otherwise never updated
@@ -307,50 +256,27 @@ const startServer = async () => {
     try {
       const dpdResult = await recalculateDpd();
 
-      console.log(
-        "DPD recalculated at startup:",
-        dpdResult
-      );
+      console.log("DPD recalculated at startup:", dpdResult);
     } catch (dpdError) {
-
-      console.error(
-        "Startup DPD recalculation failed (non-fatal):",
-        dpdError
-      );
+      console.error("Startup DPD recalculation failed (non-fatal):", dpdError);
     }
 
     cron.schedule("5 0 * * *", async () => {
       try {
         const result = await recalculateDpd();
 
-        console.log(
-          "DPD recalculated (daily job):",
-          result
-        );
+        console.log("DPD recalculated (daily job):", result);
       } catch (error) {
-
-        console.error(
-          "Daily DPD recalculation failed:",
-          error
-        );
+        console.error("Daily DPD recalculation failed:", error);
       }
     });
 
-
     // 4. Start server
     app.listen(PORT, () => {
-      console.log(
-        `Server running on port ${PORT}`
-      );
+      console.log(`Server running on port ${PORT}`);
     });
-
   } catch (error) {
-
-    console.error(
-      "Application startup failed:",
-      error
-    );
-
+    console.error("Application startup failed:", error);
   }
 };
 

@@ -27,19 +27,22 @@ function isAuthorized(request) {
 
   const received = String(
     request.headers["x-pl-webhook-secret"] ||
-    request.headers["x-lender-webhook-secret"] ||
-    request.headers["x-disbursal-webhook-secret"] ||
-    request.headers["x-webhook-secret"] ||
-    request.headers["x-api-key"] ||
-    bearerSecret ||
-    "",
+      request.headers["x-lender-webhook-secret"] ||
+      request.headers["x-disbursal-webhook-secret"] ||
+      request.headers["x-webhook-secret"] ||
+      request.headers["x-api-key"] ||
+      bearerSecret ||
+      "",
   ).trim();
 
   return Boolean(
     expected &&
     received &&
     expected.length === received.length &&
-    crypto.timingSafeEqual(Buffer.from(expected, "utf8"), Buffer.from(received, "utf8")),
+    crypto.timingSafeEqual(
+      Buffer.from(expected, "utf8"),
+      Buffer.from(received, "utf8"),
+    ),
   );
 }
 
@@ -79,11 +82,35 @@ router.post("/lenders/FFPL2026/disbursal", async (req, res) => {
       });
     }
 
-    const lan = String(req.body?.lan || req.body?.LAN || req.body?.loan_account_number || "").trim().toUpperCase();
-    const utr = String(req.body?.utr || req.body?.DisbursalUTR || req.body?.disbursement_utr || req.body?.unique_transaction_reference || "").trim();
-    const disbursementDate = normalizeDate(req.body?.disbursement_date || req.body?.DisbursalDate || req.body?.disbursementDate || req.body?.transfer_date);
-    const amount = Number(req.body?.amount ?? req.body?.DisbursedAmount ?? req.body?.disbursal_amount ?? req.body?.transfer_amount);
-    const status = String(req.body?.status || req.body?.Status || req.body?.payout_status || "").trim().toUpperCase();
+    const lan = String(
+      req.body?.lan || req.body?.LAN || req.body?.loan_account_number || "",
+    )
+      .trim()
+      .toUpperCase();
+    const utr = String(
+      req.body?.utr ||
+        req.body?.DisbursalUTR ||
+        req.body?.disbursement_utr ||
+        req.body?.unique_transaction_reference ||
+        "",
+    ).trim();
+    const disbursementDate = normalizeDate(
+      req.body?.disbursement_date ||
+        req.body?.DisbursalDate ||
+        req.body?.disbursementDate ||
+        req.body?.transfer_date,
+    );
+    const amount = Number(
+      req.body?.amount ??
+        req.body?.DisbursedAmount ??
+        req.body?.disbursal_amount ??
+        req.body?.transfer_amount,
+    );
+    const status = String(
+      req.body?.status || req.body?.Status || req.body?.payout_status || "",
+    )
+      .trim()
+      .toUpperCase();
 
     if (!lan.startsWith("FTPL")) {
       return res.status(422).json({
@@ -93,7 +120,8 @@ router.post("/lenders/FFPL2026/disbursal", async (req, res) => {
       });
     }
 
-    const isSuccessStatus = status === "SUCCESS" || status === "COMPLETED" || status === "PROCESSED";
+    const isSuccessStatus =
+      status === "SUCCESS" || status === "COMPLETED" || status === "PROCESSED";
 
     if (
       !isSuccessStatus ||
@@ -158,7 +186,11 @@ router.post("/lenders/FFPL2026/disbursal", async (req, res) => {
     });
 
     // Forward the disbursal webhook to the PL platform.
-    const firstRepaymentDate = rps?.dueDate || req.body?.firstRepaymentDate || req.body?.RepaymentDate || null;
+    const firstRepaymentDate =
+      rps?.dueDate ||
+      req.body?.firstRepaymentDate ||
+      req.body?.RepaymentDate ||
+      null;
     let plWebhookDelivered = false;
     try {
       await sendPlPartnerDisbursalWebhook({
@@ -170,7 +202,10 @@ router.post("/lenders/FFPL2026/disbursal", async (req, res) => {
         eventId: req.body?.eventId || null,
       });
       plWebhookDelivered = true;
-      console.log("[FIN-LE] PL platform webhook forwarded successfully", { lan, utr });
+      console.log("[FIN-LE] PL platform webhook forwarded successfully", {
+        lan,
+        utr,
+      });
     } catch (plError) {
       console.error("[FIN-LE] PL platform webhook forwarding failed", {
         lan,
@@ -182,7 +217,10 @@ router.post("/lenders/FFPL2026/disbursal", async (req, res) => {
     }
 
     // Outbox logging for delivery status tracking
-    const uniqueRequestNumber = req.body?.eventId || req.body?.uniqueRequestNumber || `DISB_${lan}_${Date.now()}`;
+    const uniqueRequestNumber =
+      req.body?.eventId ||
+      req.body?.uniqueRequestNumber ||
+      `DISB_${lan}_${Date.now()}`;
     const payload = {
       lan,
       utr,
@@ -211,7 +249,10 @@ router.post("/lenders/FFPL2026/disbursal", async (req, res) => {
         ],
       );
     } catch (dbOutboxErr) {
-      console.error("[FIN-LE] Failed to record outbox entry", dbOutboxErr.message);
+      console.error(
+        "[FIN-LE] Failed to record outbox entry",
+        dbOutboxErr.message,
+      );
     }
 
     return res.status(200).json({

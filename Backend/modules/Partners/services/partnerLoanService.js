@@ -9,19 +9,14 @@ const {
   assertApplicationIdentity,
 } = require("../utils/partnerUtils");
 
-const FINAL_PAYOUT_STATUSES = [
-  "success",
-  "completed",
-  "processed",
-];
+const FINAL_PAYOUT_STATUSES = ["success", "completed", "processed"];
 
 async function recordPlPartnerDisbursement({
   lan,
   disbursementUtr,
   disbursementDate,
 }) {
-  const connection =
-    await db.getConnection();
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -40,18 +35,14 @@ async function recordPlPartnerDisbursement({
       [lan],
     );
 
-    const [existing] =
-      await connection.query(
-        `SELECT id
+    const [existing] = await connection.query(
+      `SELECT id
          FROM ev_disbursement_utr
          WHERE lan = ?
             OR Disbursement_UTR = ?
          LIMIT 1`,
-        [
-          lan,
-          disbursementUtr,
-        ],
-      );
+      [lan, disbursementUtr],
+    );
 
     if (!existing.length) {
       await connection.query(
@@ -63,20 +54,11 @@ async function recordPlPartnerDisbursement({
            utr
          )
          VALUES (?, ?, ?, ?)`,
-        [
-          disbursementUtr,
-          disbursementDate,
-          lan,
-          disbursementUtr,
-        ],
+        [disbursementUtr, disbursementDate, lan, disbursementUtr],
       );
     }
 
-    const rps =
-      await generatePlPartnerRps(
-        lan,
-        connection,
-      );
+    const rps = await generatePlPartnerRps(lan, connection);
 
     /*
      * generatePlPartnerRps returns no dueDate when the schedule already
@@ -86,20 +68,17 @@ async function recordPlPartnerDisbursement({
     let dueDate = rps.dueDate || null;
 
     if (!dueDate) {
-      const [rows] =
-        await connection.query(
-          `SELECT due_date
+      const [rows] = await connection.query(
+        `SELECT due_date
            FROM manual_rps_fintree_personal_loan
            WHERE lan = ?
            ORDER BY due_date ASC
            LIMIT 1`,
-          [lan],
-        );
+        [lan],
+      );
 
       dueDate = rows[0]?.due_date
-        ? new Date(rows[0].due_date)
-            .toISOString()
-            .split("T")[0]
+        ? new Date(rows[0].due_date).toISOString().split("T")[0]
         : null;
     }
 
@@ -131,11 +110,10 @@ async function sendPlPartnerDisbursalWebhook({
   eventId,
 }) {
   const webhookUrl =
-    String(
-      process.env
-        .PLP_DISBURSAL_WEBHOOK_URL || "",
-    ).trim() ||
-    (String(process.env.PLP_BASE_URL || "").trim().replace(/\/+$/, "")
+    String(process.env.PLP_DISBURSAL_WEBHOOK_URL || "").trim() ||
+    (String(process.env.PLP_BASE_URL || "")
+      .trim()
+      .replace(/\/+$/, "")
       ? `${String(process.env.PLP_BASE_URL).trim().replace(/\/+$/, "")}/api/webhooks/lenders/FFPL2026/disbursal`
       : "");
 
@@ -146,8 +124,7 @@ async function sendPlPartnerDisbursalWebhook({
   }
 
   const webhookSecret = String(
-      process.env
-      .PLP_DISBURSAL_WEBHOOK_SECRET || "",
+    process.env.PLP_DISBURSAL_WEBHOOK_SECRET || "",
   ).trim();
 
   const response = await axios.post(
@@ -171,14 +148,10 @@ async function sendPlPartnerDisbursalWebhook({
 
         ...(webhookSecret
           ? {
-              "x-pl-webhook-secret":
-                webhookSecret,
-              "x-lender-webhook-secret":
-                webhookSecret,
-              "x-disbursal-webhook-secret":
-                webhookSecret,
-              "x-webhook-secret":
-                webhookSecret,
+              "x-pl-webhook-secret": webhookSecret,
+              "x-lender-webhook-secret": webhookSecret,
+              "x-disbursal-webhook-secret": webhookSecret,
+              "x-webhook-secret": webhookSecret,
             }
           : {}),
       },
@@ -186,14 +159,11 @@ async function sendPlPartnerDisbursalWebhook({
     },
   );
 
-  console.log(
-    "[PL PARTNER] Disbursal webhook sent",
-    {
-      lan,
-      webhookUrl,
-      eventId,
-    },
-  );
+  console.log("[PL PARTNER] Disbursal webhook sent", {
+    lan,
+    webhookUrl,
+    eventId,
+  });
 
   return {
     status: "DELIVERED",
@@ -217,26 +187,34 @@ async function sendPlPartnerRejectionWebhook({
   correlationId = null,
   timestamp = null,
 }) {
-  lan = String(lan || "").trim().toUpperCase();
+  lan = String(lan || "")
+    .trim()
+    .toUpperCase();
 
   const primaryUrl =
     String(process.env.LOS_REJECTION_WEBHOOK_URL || "").trim() ||
-    (String(process.env.PLP_BASE_URL || "").trim().replace(/\/+$/, "")
+    (String(process.env.PLP_BASE_URL || "")
+      .trim()
+      .replace(/\/+$/, "")
       ? `${String(process.env.PLP_BASE_URL).trim().replace(/\/+$/, "")}/api/webhooks/lenders/FFPL2026/rejection`
       : "");
 
   const fallbackUrl =
     String(process.env.LOS_FALLBACK_REJECTION_WEBHOOK_URL || "").trim() ||
-    (String(process.env.PLP_BASE_URL || "").trim().replace(/\/+$/, "")
+    (String(process.env.PLP_BASE_URL || "")
+      .trim()
+      .replace(/\/+$/, "")
       ? `${String(process.env.PLP_BASE_URL).trim().replace(/\/+$/, "")}/api/webhooks/rejection`
       : "");
 
   const candidateUrls = Array.from(
-    new Set([primaryUrl, fallbackUrl].filter(Boolean))
+    new Set([primaryUrl, fallbackUrl].filter(Boolean)),
   );
 
   const safeTimestamp = timestamp
-    ? (timestamp instanceof Date ? timestamp.toISOString() : new Date(timestamp).toISOString())
+    ? timestamp instanceof Date
+      ? timestamp.toISOString()
+      : new Date(timestamp).toISOString()
     : new Date().toISOString();
 
   const payload = {
@@ -251,17 +229,21 @@ async function sendPlPartnerRejectionWebhook({
 
   const uniqueRequestNumber = `REJ_${lan}_${Date.now()}`;
   const effectiveCorrelationId = correlationId || crypto.randomUUID();
-  const apiKey = String(process.env.LOS_WEBHOOK_API_KEY || "Fintree@2026").trim();
+  const apiKey = String(
+    process.env.LOS_WEBHOOK_API_KEY || "Fintree@2026",
+  ).trim();
   const webhookSecret = String(
     process.env.PLP_DISBURSAL_WEBHOOK_SECRET ||
-    process.env.PL_WEBHOOK_SECRET ||
-    process.env.DISBURSAL_WEBHOOK_SECRET ||
-    ""
+      process.env.PL_WEBHOOK_SECRET ||
+      process.env.DISBURSAL_WEBHOOK_SECRET ||
+      "",
   ).trim();
 
   // If no webhook URL is configured, record in outbox and return
   if (candidateUrls.length === 0) {
-    console.warn(`[LOS OUTBOUND REJECTION] No webhook URL configured for rejection (LOS_REJECTION_WEBHOOK_URL). Skipped sending.`);
+    console.warn(
+      `[LOS OUTBOUND REJECTION] No webhook URL configured for rejection (LOS_REJECTION_WEBHOOK_URL). Skipped sending.`,
+    );
     try {
       await db.query(
         `INSERT INTO pl_rejection_webhook_deliveries
@@ -274,16 +256,20 @@ async function sendPlPartnerRejectionWebhook({
           JSON.stringify(payload),
           null,
           "LOS_REJECTION_WEBHOOK_URL not configured",
-        ]
+        ],
       );
     } catch (dbErr) {
-      console.error("[LOS OUTBOUND REJECTION] Outbox record error:", dbErr.message);
+      console.error(
+        "[LOS OUTBOUND REJECTION] Outbox record error:",
+        dbErr.message,
+      );
     }
 
     return {
       status: "SKIPPED_NO_URL",
       delivered: false,
-      message: "LOS_REJECTION_WEBHOOK_URL is not configured; rejection recorded in LMS",
+      message:
+        "LOS_REJECTION_WEBHOOK_URL is not configured; rejection recorded in LMS",
       payload,
     };
   }
@@ -318,15 +304,21 @@ async function sendPlPartnerRejectionWebhook({
       });
 
       deliveryStatus = "DELIVERED";
-      responseData = typeof response.data === "object" ? JSON.stringify(response.data) : String(response.data);
+      responseData =
+        typeof response.data === "object"
+          ? JSON.stringify(response.data)
+          : String(response.data);
       deliveredAt = new Date();
       lastError = null;
 
-      console.log(`[LOS OUTBOUND REJECTION] Rejection webhook delivered to LOS successfully`, {
-        lan,
-        webhookUrl: targetUrl,
-        status: response.status,
-      });
+      console.log(
+        `[LOS OUTBOUND REJECTION] Rejection webhook delivered to LOS successfully`,
+        {
+          lan,
+          webhookUrl: targetUrl,
+          status: response.status,
+        },
+      );
 
       break;
     } catch (error) {
@@ -334,7 +326,9 @@ async function sendPlPartnerRejectionWebhook({
         ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`
         : error.message;
 
-      console.warn(`[LOS OUTBOUND REJECTION] Attempt to ${targetUrl} failed: ${lastError}. Trying fallback if available...`);
+      console.warn(
+        `[LOS OUTBOUND REJECTION] Attempt to ${targetUrl} failed: ${lastError}. Trying fallback if available...`,
+      );
     }
   }
 
@@ -356,11 +350,14 @@ async function sendPlPartnerRejectionWebhook({
       ? `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`
       : error.message;
 
-    console.error(`[LOS OUTBOUND REJECTION] Failed to deliver rejection webhook to LOS`, {
-      lan,
-      webhookUrl,
-      error: lastError,
-    });
+    console.error(
+      `[LOS OUTBOUND REJECTION] Failed to deliver rejection webhook to LOS`,
+      {
+        lan,
+        webhookUrl,
+        error: lastError,
+      },
+    );
 
     return {
       status: "FAILED",
@@ -390,10 +387,13 @@ async function sendPlPartnerRejectionWebhook({
           responseData,
           lastError,
           deliveredAt,
-        ]
+        ],
       );
     } catch (dbErr) {
-      console.error("[LOS OUTBOUND REJECTION] Failed to update outbox record:", dbErr.message);
+      console.error(
+        "[LOS OUTBOUND REJECTION] Failed to update outbox record:",
+        dbErr.message,
+      );
     }
   }
 }
@@ -412,7 +412,9 @@ async function rejectLoanByLan({
   rejectedBy = "LMS User",
   correlationId = null,
 }) {
-  lan = String(lan || "").trim().toUpperCase();
+  lan = String(lan || "")
+    .trim()
+    .toUpperCase();
 
   if (!lan) {
     throw apiError(400, "INVALID_REQUEST", "lan is required");
@@ -423,21 +425,32 @@ async function rejectLoanByLan({
      FROM pl_partner_applications
      WHERE lan = ?
      LIMIT 1`,
-    [lan]
+    [lan],
   );
 
   if (!apps.length) {
-    throw apiError(404, "APPLICATION_NOT_FOUND", `Application not found for LAN: ${lan}`);
+    throw apiError(
+      404,
+      "APPLICATION_NOT_FOUND",
+      `Application not found for LAN: ${lan}`,
+    );
   }
 
   const app = apps[0];
 
   if (app.status === "DISBURSED") {
-    throw apiError(409, "APPLICATION_ALREADY_DISBURSED", `Application ${lan} is already disbursed and cannot be rejected`);
+    throw apiError(
+      409,
+      "APPLICATION_ALREADY_DISBURSED",
+      `Application ${lan} is already disbursed and cannot be rejected`,
+    );
   }
 
   const rejectedAt = new Date();
-  const truncatedReason = String(rejectReason || "Rejected by LMS").slice(0, 100);
+  const truncatedReason = String(rejectReason || "Rejected by LMS").slice(
+    0,
+    100,
+  );
 
   // Update in LMS database
   await query(
@@ -453,17 +466,12 @@ async function rejectLoanByLan({
        bre_final_reason = ?,
        updated_at = NOW(3)
      WHERE id = ?`,
-    [
-      stage,
-      rejectReason,
-      rejectedAt,
-      truncatedReason,
-      truncatedReason,
-      app.id,
-    ]
+    [stage, rejectReason, rejectedAt, truncatedReason, truncatedReason, app.id],
   );
 
-  console.log(`[LMS REJECT] Application ${lan} marked as REJECTED in LMS. Reason: ${rejectReason}`);
+  console.log(
+    `[LMS REJECT] Application ${lan} marked as REJECTED in LMS. Reason: ${rejectReason}`,
+  );
 
   // Send outbound webhook to LOS
   let losWebhookResult = null;
@@ -477,7 +485,10 @@ async function rejectLoanByLan({
       timestamp: rejectedAt,
     });
   } catch (webhookErr) {
-    console.error(`[LMS REJECT] Failed to send outbound rejection webhook to LOS for ${lan}:`, webhookErr.message);
+    console.error(
+      `[LMS REJECT] Failed to send outbound rejection webhook to LOS for ${lan}:`,
+      webhookErr.message,
+    );
     losWebhookResult = {
       status: "FAILED",
       delivered: false,
@@ -495,30 +506,19 @@ async function rejectLoanByLan({
   };
 }
 
-async function triggerEasebuzzPayout({
-  app,
-  amount,
-  uniqueRequestNumber,
-}) {
-  const beneficiaryName = String(
-    app.bank_account_holder_name || "",
-  )
+async function triggerEasebuzzPayout({ app, amount, uniqueRequestNumber }) {
+  const beneficiaryName = String(app.bank_account_holder_name || "")
     .trim()
     .replace(/\s+/g, " ")
     .toUpperCase();
 
-  const accountNumber = String(
-    app.bank_account_number || "",
-  ).trim();
+  const accountNumber = String(app.bank_account_number || "").trim();
 
-  const ifsc = String(
-    app.bank_ifsc_code || "",
-  )
+  const ifsc = String(app.bank_ifsc_code || "")
     .trim()
     .toUpperCase();
 
-  const isTestMode =
-    process.env.ENABLE_REAL_PAYOUT !== "true";
+  const isTestMode = process.env.ENABLE_REAL_PAYOUT !== "true";
 
   if (isTestMode) {
     const now = Date.now();
@@ -532,11 +532,9 @@ async function triggerEasebuzzPayout({
             id: `TEST_${now}`,
             status: "initiated",
             transfer_date: new Date().toISOString(),
-            unique_transaction_reference:
-              `TESTUTR${now}`,
+            unique_transaction_reference: `TESTUTR${now}`,
             queue_on_low_balance: 0,
-            unique_request_number:
-              uniqueRequestNumber,
+            unique_request_number: uniqueRequestNumber,
           },
         },
       },
@@ -553,10 +551,7 @@ async function triggerEasebuzzPayout({
     process.env.EASEBUZZ_SALT,
   ].join("|");
 
-  const authorization = crypto
-    .createHash("sha512")
-    .update(raw)
-    .digest("hex");
+  const authorization = crypto.createHash("sha512").update(raw).digest("hex");
 
   const response = await axios.post(
     "https://wire.easebuzz.in/api/v1/quick_transfers/initiate/",
@@ -567,16 +562,14 @@ async function triggerEasebuzzPayout({
       account_number: accountNumber,
       ifsc,
       upi_handle: "",
-      unique_request_number:
-        uniqueRequestNumber,
+      unique_request_number: uniqueRequestNumber,
       payment_mode: "IMPS",
       amount,
     },
     {
       headers: {
         Authorization: authorization,
-        "WIRE-API-KEY":
-          process.env.EASEBUZZ_WIRE_API_KEY,
+        "WIRE-API-KEY": process.env.EASEBUZZ_WIRE_API_KEY,
         "Content-Type": "application/json",
       },
       timeout: 15000,
@@ -607,13 +600,8 @@ async function triggerEasebuzzPayout({
 | Actual success comes from webhook.
 |
 */
-async function requestDisbursal(
-  partnerApplicationId,
-  body,
-) {
-  const app = await getApplication(
-    partnerApplicationId,
-  );
+async function requestDisbursal(partnerApplicationId, body) {
+  const app = await getApplication(partnerApplicationId);
 
   if (!app) {
     return null;
@@ -625,11 +613,7 @@ async function requestDisbursal(
   |--------------------------------------------------------------------------
   */
 
-  if (
-    String(
-      app.bre_final_status || "",
-    ).toUpperCase() !== "APPROVED"
-  ) {
+  if (String(app.bre_final_status || "").toUpperCase() !== "APPROVED") {
     throw apiError(
       409,
       "FINAL_APPROVAL_REQUIRED",
@@ -645,15 +629,8 @@ async function requestDisbursal(
 
   const amount = Number(body.amount);
 
-  if (
-    !Number.isFinite(amount) ||
-    amount <= 0
-  ) {
-    throw apiError(
-      400,
-      "INVALID_DISBURSAL_AMOUNT",
-      "Invalid disbursal amount",
-    );
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw apiError(400, "INVALID_DISBURSAL_AMOUNT", "Invalid disbursal amount");
   }
 
   /*
@@ -662,13 +639,9 @@ async function requestDisbursal(
 |--------------------------------------------------------------------------
 */
 
-  const approvedAmount =
-    Number(app.bre_approved_loan_amount);
+  const approvedAmount = Number(app.bre_approved_loan_amount);
 
-  if (
-    !Number.isFinite(approvedAmount) ||
-    approvedAmount <= 0
-  ) {
+  if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
     throw apiError(
       409,
       "APPROVED_AMOUNT_MISSING",
@@ -676,10 +649,7 @@ async function requestDisbursal(
     );
   }
 
-  if (
-    Math.round(amount * 100) !==
-    Math.round(approvedAmount * 100)
-  ) {
+  if (Math.round(amount * 100) !== Math.round(approvedAmount * 100)) {
     throw apiError(
       409,
       "DISBURSAL_AMOUNT_MISMATCH",
@@ -687,7 +657,7 @@ async function requestDisbursal(
     );
   }
 
-/*
+  /*
 |--------------------------------------------------------------------------
 | MAX PAYOUT CAP
 |--------------------------------------------------------------------------
@@ -698,13 +668,13 @@ async function requestDisbursal(
 |
 */
 
-if (amount > POLICY.MAX_LOAN_AMOUNT) {
-  throw apiError(
-    409,
-    "MAX_PAYOUT_LIMIT_EXCEEDED",
-    `Disbursal amount exceeds the maximum permitted payout of ${POLICY.MAX_LOAN_AMOUNT}`,
-  );
-}
+  if (amount > POLICY.MAX_LOAN_AMOUNT) {
+    throw apiError(
+      409,
+      "MAX_PAYOUT_LIMIT_EXCEEDED",
+      `Disbursal amount exceeds the maximum permitted payout of ${POLICY.MAX_LOAN_AMOUNT}`,
+    );
+  }
 
   /*
   |--------------------------------------------------------------------------
@@ -713,11 +683,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
   */
 
   if (!app.lan) {
-    throw apiError(
-      400,
-      "LAN_REQUIRED",
-      "LAN is required before disbursal",
-    );
+    throw apiError(400, "LAN_REQUIRED", "LAN is required before disbursal");
   }
 
   if (
@@ -748,11 +714,9 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
   | external HTTP request.
   */
 
-  const uniqueRequestNumber =
-    `FTPL_${app.id}_${Date.now()}`;
+  const uniqueRequestNumber = `FTPL_${app.id}_${Date.now()}`;
 
-  const lockConnection =
-    await db.getConnection();
+  const lockConnection = await db.getConnection();
 
   try {
     await lockConnection.beginTransaction();
@@ -767,9 +731,8 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       [app.id],
     );
 
-    const [existingRows] =
-      await lockConnection.query(
-        `
+    const [existingRows] = await lockConnection.query(
+      `
           SELECT
             id,
             unique_request_number,
@@ -780,25 +743,20 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
           ORDER BY id DESC
           LIMIT 1
         `,
-        [app.partner_application_id],
-      );
+      [app.partner_application_id],
+    );
 
-    const existingTransfer =
-      existingRows[0] || null;
+    const existingTransfer = existingRows[0] || null;
 
     if (existingTransfer) {
-      const status = String(
-        existingTransfer.status || "",
-      ).toUpperCase();
+      const status = String(existingTransfer.status || "").toUpperCase();
 
       const payoutStatus = String(
         existingTransfer.payout_status || "",
       ).toLowerCase();
 
       if (
-        ["INITIATED", "SUCCESS"].includes(
-          status,
-        ) ||
+        ["INITIATED", "SUCCESS"].includes(status) ||
         [
           "requested",
           "initiated",
@@ -856,15 +814,13 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     |--------------------------------------------------------------------------
     */
 
-    const easebuzzResult =
-      await triggerEasebuzzPayout({
-        app,
-        amount,
-        uniqueRequestNumber,
-      });
+    const easebuzzResult = await triggerEasebuzzPayout({
+      app,
+      amount,
+      uniqueRequestNumber,
+    });
 
-    const easebuzzResponse =
-      easebuzzResult.response;
+    const easebuzzResponse = easebuzzResult.response;
 
     /*
     |--------------------------------------------------------------------------
@@ -872,12 +828,9 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     |--------------------------------------------------------------------------
     */
 
-    if (
-      easebuzzResponse?.success === false
-    ) {
+    if (easebuzzResponse?.success === false) {
       const failureReason =
-        easebuzzResponse.message ||
-        "EASEBUZZ_PAYOUT_FAILED";
+        easebuzzResponse.message || "EASEBUZZ_PAYOUT_FAILED";
 
       await query(
         `
@@ -890,20 +843,10 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
             updated_at = NOW()
           WHERE unique_request_number = ?
         `,
-        [
-          failureReason,
-          JSON.stringify(
-            easebuzzResponse,
-          ),
-          uniqueRequestNumber,
-        ],
+        [failureReason, JSON.stringify(easebuzzResponse), uniqueRequestNumber],
       );
 
-      throw apiError(
-        502,
-        "EASEBUZZ_PAYOUT_FAILED",
-        failureReason,
-      );
+      throw apiError(502, "EASEBUZZ_PAYOUT_FAILED", failureReason);
     }
 
     /*
@@ -912,9 +855,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     |--------------------------------------------------------------------------
     */
 
-    const transfer =
-      easebuzzResponse?.data
-        ?.transfer_request;
+    const transfer = easebuzzResponse?.data?.transfer_request;
 
     if (!transfer) {
       await query(
@@ -930,9 +871,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
         `,
         [
           "INVALID_EASEBUZZ_RESPONSE",
-          JSON.stringify(
-            easebuzzResponse,
-          ),
+          JSON.stringify(easebuzzResponse),
           uniqueRequestNumber,
         ],
       );
@@ -944,9 +883,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       );
     }
 
-    const providerStatus = String(
-      transfer.status || "initiated",
-    ).toLowerCase();
+    const providerStatus = String(transfer.status || "initiated").toLowerCase();
 
     /*
     |--------------------------------------------------------------------------
@@ -975,52 +912,37 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
         transfer.queue_on_low_balance ?? 0,
 
         transfer.transfer_date
-          ? String(
-            transfer.transfer_date,
-          ).split("T")[0]
+          ? String(transfer.transfer_date).split("T")[0]
           : null,
 
-        transfer
-          .unique_transaction_reference ||
-        null,
+        transfer.unique_transaction_reference || null,
 
-        JSON.stringify(
-          easebuzzResponse,
-        ),
+        JSON.stringify(easebuzzResponse),
 
         uniqueRequestNumber,
       ],
     );
 
-    const utr =
-      transfer
-        .unique_transaction_reference ||
-      null;
+    const utr = transfer.unique_transaction_reference || null;
 
-    const transferDate =
-      transfer.transfer_date
-        ? String(
-            transfer.transfer_date,
-          ).split("T")[0]
-        : null;
+    const transferDate = transfer.transfer_date
+      ? String(transfer.transfer_date).split("T")[0]
+      : null;
 
     const baseResponse = {
       status: "REQUESTED",
 
-      disbursalReference:
-        uniqueRequestNumber,
+      disbursalReference: uniqueRequestNumber,
 
       provider: "EASEBUZZ",
 
       providerStatus,
 
-      transferId:
-        transfer.id || null,
+      transferId: transfer.id || null,
 
       utr,
 
-      testMode:
-        easebuzzResult.testMode,
+      testMode: easebuzzResult.testMode,
     };
 
     /*
@@ -1035,9 +957,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     */
 
     if (
-      !FINAL_PAYOUT_STATUSES.includes(
-        providerStatus,
-      ) ||
+      !FINAL_PAYOUT_STATUSES.includes(providerStatus) ||
       !utr ||
       !transferDate
     ) {
@@ -1066,12 +986,11 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     let rps = null;
 
     try {
-      rps =
-        await recordPlPartnerDisbursement({
-          lan: app.lan,
-          disbursementUtr: utr,
-          disbursementDate: transferDate,
-        });
+      rps = await recordPlPartnerDisbursement({
+        lan: app.lan,
+        disbursementUtr: utr,
+        disbursementDate: transferDate,
+      });
     } catch (disbursementError) {
       console.error(
         "[PL PARTNER] Disbursement recording failed after a successful payout",
@@ -1103,11 +1022,14 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
         eventId: `evt-${uniqueRequestNumber}`,
       });
     } catch (plError) {
-      console.error("[PL PARTNER] Automatic disbursal webhook forwarding failed", {
-        lan: app.lan,
-        utr,
-        error: plError.message,
-      });
+      console.error(
+        "[PL PARTNER] Automatic disbursal webhook forwarding failed",
+        {
+          lan: app.lan,
+          utr,
+          error: plError.message,
+        },
+      );
     }
 
     return {
@@ -1128,13 +1050,10 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       throw error;
     }
 
-    const responseData =
-      error.response?.data || null;
+    const responseData = error.response?.data || null;
 
     const failureReason =
-      responseData?.message ||
-      error.message ||
-      "EASEBUZZ_PAYOUT_FAILED";
+      responseData?.message || error.message || "EASEBUZZ_PAYOUT_FAILED";
 
     await query(
       `
@@ -1160,14 +1079,9 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       ],
     );
 
-    throw apiError(
-      502,
-      "EASEBUZZ_PAYOUT_FAILED",
-      failureReason,
-    );
+    throw apiError(502, "EASEBUZZ_PAYOUT_FAILED", failureReason);
   }
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -1179,19 +1093,10 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
 | pl_partner_idempotency_records
 |
 */
-async function addExtraCharge(
-  partnerApplicationId,
-  payload
-) {
-  const application =
-    await getApplication(
-      partnerApplicationId
-    );
+async function addExtraCharge(partnerApplicationId, payload) {
+  const application = await getApplication(partnerApplicationId);
 
-  assertApplicationIdentity(
-    application,
-    payload
-  );
+  assertApplicationIdentity(application, payload);
 
   const lan = application.lan;
 
@@ -1219,7 +1124,7 @@ async function addExtraCharge(
       payload.amount,
       payload.chargeType,
       payload.remarks || null,
-    ]
+    ],
   );
 
   return {
@@ -1233,31 +1138,20 @@ async function addExtraCharge(
 |--------------------------------------------------------------------------
 */
 
-async function waiveExtraCharge(
-  partnerApplicationId,
-  payload
-) {
-  const connection =
-    await db.getConnection();
+async function waiveExtraCharge(partnerApplicationId, payload) {
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    const application =
-      await getApplication(
-        partnerApplicationId
-      );
+    const application = await getApplication(partnerApplicationId);
 
-    assertApplicationIdentity(
-      application,
-      payload
-    );
+    assertApplicationIdentity(application, payload);
 
     const lan = application.lan;
 
-    const [rows] =
-      await connection.query(
-        `SELECT
+    const [rows] = await connection.query(
+      `SELECT
            id,
            amount,
            paid_amount,
@@ -1273,11 +1167,8 @@ async function waiveExtraCharge(
          ORDER BY due_date ASC, id ASC
          LIMIT 1
          FOR UPDATE`,
-        [
-          lan,
-          payload.chargeType,
-        ]
-      );
+      [lan, payload.chargeType],
+    );
 
     const charge = rows[0];
 
@@ -1285,7 +1176,7 @@ async function waiveExtraCharge(
       throw apiError(
         404,
         "CHARGE_NOT_FOUND",
-        "Charge not found or already settled"
+        "Charge not found or already settled",
       );
     }
 
@@ -1294,28 +1185,21 @@ async function waiveExtraCharge(
       Number(charge.paid_amount || 0) -
       Number(charge.waived_amount || 0);
 
-    const waiverAmount =
-      Number(payload.waiverAmount);
+    const waiverAmount = Number(payload.waiverAmount);
 
     if (waiverAmount > outstanding) {
       throw apiError(
         400,
         "VALIDATION_ERROR",
-        "waiverAmount exceeds the outstanding charge amount"
+        "waiverAmount exceeds the outstanding charge amount",
       );
     }
 
-    const newWaivedAmount =
-      Number(charge.waived_amount || 0) +
-      waiverAmount;
+    const newWaivedAmount = Number(charge.waived_amount || 0) + waiverAmount;
 
-    const remaining =
-      outstanding - waiverAmount;
+    const remaining = outstanding - waiverAmount;
 
-    const status =
-      remaining <= 0
-        ? "Waived"
-        : "Partially Waived";
+    const status = remaining <= 0 ? "Waived" : "Partially Waived";
 
     await connection.query(
       `UPDATE loan_charges
@@ -1323,11 +1207,7 @@ async function waiveExtraCharge(
          waived_amount = ?,
          paid_status = ?
        WHERE id = ?`,
-      [
-        newWaivedAmount,
-        status,
-        charge.id,
-      ]
+      [newWaivedAmount, status, charge.id],
     );
 
     await connection.commit();
@@ -1335,11 +1215,9 @@ async function waiveExtraCharge(
     return {
       status: "CHARGE_WAIVED",
     };
-
   } catch (error) {
     await connection.rollback();
     throw error;
-
   } finally {
     connection.release();
   }
@@ -1351,12 +1229,8 @@ async function waiveExtraCharge(
 |--------------------------------------------------------------------------
 */
 
-async function recordDisbursementUtr(
-  partnerApplicationId,
-  payload
-) {
-  const connection =
-    await db.getConnection();
+async function recordDisbursementUtr(partnerApplicationId, payload) {
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -1374,36 +1248,26 @@ async function recordDisbursementUtr(
       [partnerApplicationId],
     );
 
-    const application =
-      await getApplication(
-        partnerApplicationId
-      );
+    const application = await getApplication(partnerApplicationId);
 
-    assertApplicationIdentity(
-      application,
-      payload
-    );
+    assertApplicationIdentity(application, payload);
 
     const lan = application.lan;
 
-    const [existing] =
-      await connection.query(
-        `SELECT id
+    const [existing] = await connection.query(
+      `SELECT id
          FROM ev_disbursement_utr
          WHERE lan = ?
             OR Disbursement_UTR = ?
          LIMIT 1`,
-        [
-          lan,
-          payload.disbursementUtr,
-        ]
-      );
+      [lan, payload.disbursementUtr],
+    );
 
     if (existing.length) {
       throw apiError(
         409,
         "DISBURSEMENT_ALREADY_RECORDED",
-        "Disbursement UTR already exists"
+        "Disbursement UTR already exists",
       );
     }
 
@@ -1415,36 +1279,23 @@ async function recordDisbursementUtr(
          lan
        )
        VALUES (?, ?, ?)`,
-      [
-        payload.disbursementUtr,
-        payload.disbursementDate,
-        lan,
-      ]
+      [payload.disbursementUtr, payload.disbursementDate, lan],
     );
 
-    const rps =
-      await generatePlPartnerRps(
-        lan,
-        connection
-      );
+    const rps = await generatePlPartnerRps(lan, connection);
 
     await connection.commit();
 
     return {
-      status:
-        "DISBURSEMENT_RECORDED",
+      status: "DISBURSEMENT_RECORDED",
       lan,
-      disbursementUtr:
-        payload.disbursementUtr,
-      disbursementDate:
-        payload.disbursementDate,
+      disbursementUtr: payload.disbursementUtr,
+      disbursementDate: payload.disbursementDate,
       rps,
     };
-
   } catch (error) {
     await connection.rollback();
     throw error;
-
   } finally {
     connection.release();
   }
@@ -1457,7 +1308,6 @@ async function recordDisbursementUtr(
 */
 
 async function generatePlPartnerRps(lan, connection) {
-
   /*
   |--------------------------------------------------------------------------
   | GET LOAN + DISBURSEMENT DETAILS
@@ -1484,7 +1334,7 @@ async function generatePlPartnerRps(lan, connection) {
       ON d.lan = p.lan
    WHERE p.lan = ?
    LIMIT 1`,
-    [lan]
+    [lan],
   );
 
   const loan = rows[0];
@@ -1493,7 +1343,7 @@ async function generatePlPartnerRps(lan, connection) {
     throw apiError(
       404,
       "DISBURSEMENT_NOT_FOUND",
-      "Loan or disbursement details not found"
+      "Loan or disbursement details not found",
     );
   }
 
@@ -1515,7 +1365,7 @@ async function generatePlPartnerRps(lan, connection) {
     throw apiError(
       409,
       "APPROVED_AMOUNT_MISSING",
-      "bre_gross_approved_amount is not set for this loan"
+      "bre_gross_approved_amount is not set for this loan",
     );
   }
 
@@ -1527,10 +1377,9 @@ async function generatePlPartnerRps(lan, connection) {
     throw apiError(
       409,
       "SELECTED_TENURE_MISSING",
-      "selected_offer_tenure is not set for this loan"
+      "selected_offer_tenure is not set for this loan",
     );
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -1538,17 +1387,13 @@ async function generatePlPartnerRps(lan, connection) {
   |--------------------------------------------------------------------------
   */
 
-  if (
-    String(loan.tenure_type || "")
-      .toUpperCase() !== "DAYS"
-  ) {
+  if (String(loan.tenure_type || "").toUpperCase() !== "DAYS") {
     throw apiError(
       400,
       "INVALID_TENURE_TYPE",
-      "Only DAYS tenure is supported for bullet RPS"
+      "Only DAYS tenure is supported for bullet RPS",
     );
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -1561,7 +1406,7 @@ async function generatePlPartnerRps(lan, connection) {
      FROM manual_rps_fintree_personal_loan
      WHERE lan = ?
      LIMIT 1`,
-    [lan]
+    [lan],
   );
 
   if (existing.length) {
@@ -1570,34 +1415,25 @@ async function generatePlPartnerRps(lan, connection) {
     };
   }
 
-
   /*
   |--------------------------------------------------------------------------
   | VALUES
   |--------------------------------------------------------------------------
   */
 
-  const amount =
-    Number(loan.bre_gross_approved_amount);
+  const amount = Number(loan.bre_gross_approved_amount);
 
-  const tenure =
-    Number(loan.selected_offer_tenure);
+  const tenure = Number(loan.selected_offer_tenure);
 
-  const roi =
-    Number(loan.interest_rate);
+  const roi = Number(loan.interest_rate);
 
-  if (
-    amount <= 0 ||
-    tenure <= 0 ||
-    roi < 0
-  ) {
+  if (amount <= 0 || tenure <= 0 || roi < 0) {
     throw apiError(
       400,
       "INVALID_RPS_DATA",
-      "Invalid amount, tenure or interest rate"
+      "Invalid amount, tenure or interest rate",
     );
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -1608,21 +1444,11 @@ async function generatePlPartnerRps(lan, connection) {
   |
   */
 
-  const interest =
-    Math.ceil(
-      amount *
-      (roi / 100) *
-      (tenure / 365)
-    );
+  const interest = Math.ceil(amount * (roi / 100) * (tenure / 365));
 
   const principal = amount;
 
-  const emi =
-    Number(
-      (principal + interest)
-        .toFixed(2)
-    );
-
+  const emi = Number((principal + interest).toFixed(2));
 
   /*
   |--------------------------------------------------------------------------
@@ -1692,7 +1518,7 @@ async function generatePlPartnerRps(lan, connection) {
       principal,
 
       emi,
-    ]
+    ],
   );
 
   return {
@@ -1705,24 +1531,15 @@ async function generatePlPartnerRps(lan, connection) {
   };
 }
 
-async function allocatePlPartner(
-  lan,
-  payment,
-  connection
-) {
-  let remaining =
-    Number(payment.transfer_amount);
+async function allocatePlPartner(lan, payment, connection) {
+  let remaining = Number(payment.transfer_amount);
 
-  const paymentDate =
-    payment.payment_date;
+  const paymentDate = payment.payment_date;
 
-  const paymentId =
-    payment.payment_id;
+  const paymentId = payment.payment_id;
 
   if (!paymentId) {
-    throw new Error(
-      "payment_id is required"
-    );
+    throw new Error("payment_id is required");
   }
 
   /*
@@ -1732,9 +1549,8 @@ async function allocatePlPartner(
   */
 
   while (remaining > 0) {
-    const [emiRows] =
-      await connection.query(
-        `SELECT *
+    const [emiRows] = await connection.query(
+      `SELECT *
      FROM manual_rps_fintree_personal_loan
      WHERE lan = ?
        AND (
@@ -1744,8 +1560,8 @@ async function allocatePlPartner(
      ORDER BY due_date ASC
      LIMIT 1
      FOR UPDATE`,
-        [lan]
-      );
+      [lan],
+    );
 
     const emi = emiRows[0];
 
@@ -1753,29 +1569,16 @@ async function allocatePlPartner(
       break;
     }
 
-    let interestDue =
-      Number(
-        emi.remaining_interest || 0
-      );
+    let interestDue = Number(emi.remaining_interest || 0);
 
-    let principalDue =
-      Number(
-        emi.remaining_principal || 0
-      );
+    let principalDue = Number(emi.remaining_principal || 0);
 
     /*
     | Interest first
     */
 
-    if (
-      remaining > 0 &&
-      interestDue > 0
-    ) {
-      const amount =
-        Math.min(
-          remaining,
-          interestDue
-        );
+    if (remaining > 0 && interestDue > 0) {
+      const amount = Math.min(remaining, interestDue);
 
       remaining -= amount;
       interestDue -= amount;
@@ -1791,13 +1594,7 @@ async function allocatePlPartner(
            payment_id
          )
          VALUES (?, ?, ?, ?, 'Interest', ?)`,
-        [
-          lan,
-          emi.due_date,
-          paymentDate,
-          amount,
-          paymentId,
-        ]
+        [lan, emi.due_date, paymentDate, amount, paymentId],
       );
     }
 
@@ -1805,16 +1602,8 @@ async function allocatePlPartner(
     | Principal second
     */
 
-    if (
-      remaining > 0 &&
-      interestDue <= 0 &&
-      principalDue > 0
-    ) {
-      const amount =
-        Math.min(
-          remaining,
-          principalDue
-        );
+    if (remaining > 0 && interestDue <= 0 && principalDue > 0) {
+      const amount = Math.min(remaining, principalDue);
 
       remaining -= amount;
       principalDue -= amount;
@@ -1830,24 +1619,13 @@ async function allocatePlPartner(
            payment_id
          )
          VALUES (?, ?, ?, ?, 'Principal', ?)`,
-        [
-          lan,
-          emi.due_date,
-          paymentDate,
-          amount,
-          paymentId,
-        ]
+        [lan, emi.due_date, paymentDate, amount, paymentId],
       );
     }
 
-    const remainingEmi =
-      interestDue +
-      principalDue;
+    const remainingEmi = interestDue + principalDue;
 
-    const status =
-      remainingEmi <= 0
-        ? "Paid"
-        : "Partially Paid";
+    const status = remainingEmi <= 0 ? "Paid" : "Partially Paid";
 
     await connection.query(
       `UPDATE manual_rps_fintree_personal_loan
@@ -1867,7 +1645,7 @@ async function allocatePlPartner(
         paymentDate,
         status,
         emi.id,
-      ]
+      ],
     );
 
     if (remainingEmi > 0) {
@@ -1882,9 +1660,8 @@ async function allocatePlPartner(
   */
 
   while (remaining > 0) {
-    const [chargeRows] =
-      await connection.query(
-        `SELECT *
+    const [chargeRows] = await connection.query(
+      `SELECT *
      FROM loan_charges
      WHERE lan = ?
        AND (
@@ -1895,8 +1672,8 @@ async function allocatePlPartner(
      ORDER BY due_date ASC, id ASC
      LIMIT 1
      FOR UPDATE`,
-        [lan]
-      );
+      [lan],
+    );
 
     const charge = chargeRows[0];
 
@@ -1909,26 +1686,15 @@ async function allocatePlPartner(
       Number(charge.paid_amount || 0) -
       Number(charge.waived_amount || 0);
 
-    const amount =
-      Math.min(
-        remaining,
-        outstanding
-      );
+    const amount = Math.min(remaining, outstanding);
 
     remaining -= amount;
 
-    const newPaidAmount =
-      Number(
-        charge.paid_amount || 0
-      ) + amount;
+    const newPaidAmount = Number(charge.paid_amount || 0) + amount;
 
-    const newOutstanding =
-      outstanding - amount;
+    const newOutstanding = outstanding - amount;
 
-    const status =
-      newOutstanding <= 0
-        ? "Paid"
-        : "Partially Paid";
+    const status = newOutstanding <= 0 ? "Paid" : "Partially Paid";
 
     await connection.query(
       `INSERT INTO allocation
@@ -1948,7 +1714,7 @@ async function allocatePlPartner(
         amount,
         charge.charge_type,
         paymentId,
-      ]
+      ],
     );
 
     await connection.query(
@@ -1958,12 +1724,7 @@ async function allocatePlPartner(
          paid_status = ?,
          payment_time = ?
        WHERE id = ?`,
-      [
-        newPaidAmount,
-        status,
-        paymentDate,
-        charge.id,
-      ]
+      [newPaidAmount, status, paymentDate, charge.id],
     );
   }
 
@@ -1986,14 +1747,7 @@ async function allocatePlPartner(
          excess_amount
        )
        VALUES (?, ?, ?, ?, 'Excess Payment', ?, ?)`,
-      [
-        lan,
-        paymentDate,
-        paymentDate,
-        remaining,
-        paymentId,
-        remaining,
-      ]
+      [lan, paymentDate, paymentDate, remaining, paymentId, remaining],
     );
   }
 
@@ -2102,43 +1856,28 @@ async function allocatePlPartner(
 //   };
 // }
 
-async function recordRepayment(
-  partnerApplicationId,
-  payload
-) {
-  const connection =
-    await db.getConnection();
+async function recordRepayment(partnerApplicationId, payload) {
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    const application =
-      await getApplication(
-        partnerApplicationId
-      );
+    const application = await getApplication(partnerApplicationId);
 
-    assertApplicationIdentity(
-      application,
-      payload
-    );
+    assertApplicationIdentity(application, payload);
 
     const lan = application.lan;
 
-    const [duplicate] =
-      await connection.query(
-        `SELECT id
+    const [duplicate] = await connection.query(
+      `SELECT id
          FROM repayments_upload
          WHERE utr = ?
          LIMIT 1`,
-        [payload.utr]
-      );
+      [payload.utr],
+    );
 
     if (duplicate.length) {
-      throw apiError(
-        409,
-        "DUPLICATE_UTR",
-        "Repayment UTR already exists"
-      );
+      throw apiError(409, "DUPLICATE_UTR", "Repayment UTR already exists");
     }
 
     await connection.query(
@@ -2161,20 +1900,17 @@ async function recordRepayment(
         payload.paymentId,
         payload.paymentMode,
         payload.amount,
-      ]
+      ],
     );
 
     await allocatePlPartner(
       lan,
       {
-        transfer_amount:
-          Number(payload.amount),
-        payment_date:
-          payload.paymentDate,
-        payment_id:
-          payload.paymentId,
+        transfer_amount: Number(payload.amount),
+        payment_date: payload.paymentDate,
+        payment_id: payload.paymentId,
       },
-      connection
+      connection,
     );
 
     await connection.commit();
@@ -2182,11 +1918,9 @@ async function recordRepayment(
     return {
       status: "REPAYMENT_RECORDED",
     };
-
   } catch (error) {
     await connection.rollback();
     throw error;
-
   } finally {
     connection.release();
   }
@@ -2197,7 +1931,6 @@ async function recordRepayment(
 | GET ALL PERSONAL LOANS
 |--------------------------------------------------------------------------
 */
-
 
 module.exports = {
   requestDisbursal,

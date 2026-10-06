@@ -1,7 +1,5 @@
 const db = require("../../../config/db");
-const {
-  queryDB,
-} = require("../utils/partnerUtils");
+const { queryDB } = require("../utils/partnerUtils");
 
 async function getAllPersonalLoans({
   page = 1,
@@ -10,7 +8,6 @@ async function getAllPersonalLoans({
   sortBy = "created_at",
   sortDir = "desc",
 } = {}) {
-
   /*
   |--------------------------------------------------------------------------
   | PAGINATION
@@ -30,9 +27,7 @@ async function getAllPersonalLoans({
 
   pageSize = Math.min(pageSize, 100);
 
-  const offset =
-    (page - 1) * pageSize;
-
+  const offset = (page - 1) * pageSize;
 
   /*
   |--------------------------------------------------------------------------
@@ -53,15 +48,9 @@ async function getAllPersonalLoans({
     bre_status: "pa.bre_status",
   };
 
-  const sortColumn =
-    SORT_COLUMNS[sortBy] ||
-    SORT_COLUMNS.created_at;
+  const sortColumn = SORT_COLUMNS[sortBy] || SORT_COLUMNS.created_at;
 
-  const direction =
-    String(sortDir).toLowerCase() === "asc"
-      ? "ASC"
-      : "DESC";
-
+  const direction = String(sortDir).toLowerCase() === "asc" ? "ASC" : "DESC";
 
   /*
   |--------------------------------------------------------------------------
@@ -73,16 +62,12 @@ async function getAllPersonalLoans({
     WHERE pa.product_code = ?
   `;
 
-  const filterParams = [
-    "FFPL10011",
-  ];
+  const filterParams = ["FFPL10011"];
 
-  const cleanSearch =
-    String(search || "").trim();
+  const cleanSearch = String(search || "").trim();
 
   if (cleanSearch) {
-    const likeSearch =
-      `%${cleanSearch}%`;
+    const likeSearch = `%${cleanSearch}%`;
 
     whereSql += `
       AND (
@@ -107,7 +92,6 @@ async function getAllPersonalLoans({
     );
   }
 
-
   /*
   |--------------------------------------------------------------------------
   | TOTAL COUNT
@@ -126,17 +110,9 @@ async function getAllPersonalLoans({
     ${whereSql}
   `;
 
-  const countRows =
-    await queryDB(
-      countSql,
-      filterParams
-    );
+  const countRows = await queryDB(countSql, filterParams);
 
-  const total =
-    Number(
-      countRows[0]?.total || 0
-    );
-
+  const total = Number(countRows[0]?.total || 0);
 
   /*
   |--------------------------------------------------------------------------
@@ -196,16 +172,7 @@ async function getAllPersonalLoans({
     OFFSET ?
   `;
 
-  const rows =
-    await queryDB(
-      loansSql,
-      [
-        ...filterParams,
-        pageSize,
-        offset,
-      ]
-    );
-
+  const rows = await queryDB(loansSql, [...filterParams, pageSize, offset]);
 
   /*
   |--------------------------------------------------------------------------
@@ -213,86 +180,59 @@ async function getAllPersonalLoans({
   |--------------------------------------------------------------------------
   */
 
-  const loans =
-    rows.map((row) => ({
-      id: row.id,
+  const loans = rows.map((row) => ({
+    id: row.id,
 
-      lan:
-        row.lan,
+    lan: row.lan,
 
-      partner_loan_id:
-        row.partner_application_id,
+    partner_loan_id: row.partner_application_id,
 
-      partner_application_number:
-        row.partner_application_number,
+    partner_application_number: row.partner_application_number,
 
-      external_application_reference:
-        row.external_application_reference,
+    external_application_reference: row.external_application_reference,
 
-      product:
-        "Personal Loan",
+    product: "Personal Loan",
 
-      customer_name:
-        row.customer_full_name,
+    customer_name: row.customer_full_name,
 
-      mobile:
-        row.mobile_number,
+    mobile: row.mobile_number,
 
-      email:
-        row.email,
+    email: row.email,
 
-      loan_amount:
-        row.requested_amount,
+    loan_amount: row.requested_amount,
 
-      disbursal_amount:
-        row.bre_approved_loan_amount,
+    disbursal_amount: row.bre_approved_loan_amount,
 
-      disbursement_date:
-        row.disbursement_date,
+    disbursement_date: row.disbursement_date,
 
-      tenure:
-        row.requested_tenure,
+    tenure: row.requested_tenure,
 
-      tenure_type:
-        row.tenure_type,
+    tenure_type: row.tenure_type,
 
-      interest_rate:
-        row.interest_rate,
+    interest_rate: row.interest_rate,
 
-      processing_fee:
-        row.processing_fee,
+    processing_fee: row.processing_fee,
 
-      status:
-        row.status,
+    status: row.status,
 
-      employment_type:
-        row.employment_employment_type,
+    employment_type: row.employment_employment_type,
 
-      company_name:
-        row.employment_company_name,
+    company_name: row.employment_company_name,
 
-      monthly_income:
-        row.employment_monthly_income,
+    monthly_income: row.employment_monthly_income,
 
-      bre_status:
-        row.bre_status,
+    bre_status: row.bre_status,
 
-      bre_reason:
-        row.bre_reason,
+    bre_reason: row.bre_reason,
 
-      bre_approved_loan_amount:
-        row.bre_approved_loan_amount,
+    bre_approved_loan_amount: row.bre_approved_loan_amount,
 
-      bre_final_status:
-        row.bre_final_status,
+    bre_final_status: row.bre_final_status,
 
-      created_at:
-        row.created_at,
+    created_at: row.created_at,
 
-      updated_at:
-        row.updated_at,
-    }));
-
+    updated_at: row.updated_at,
+  }));
 
   return {
     rows: loans,
@@ -302,16 +242,12 @@ async function getAllPersonalLoans({
       pageSize,
       total,
 
-      totalPages:
-        Math.ceil(
-          total / pageSize
-        ),
+      totalPages: Math.ceil(total / pageSize),
     },
   };
 }
 
 async function getPersonalLoanByLan(lan) {
-
   const sql = `
     SELECT
       pa.*,
@@ -325,10 +261,7 @@ async function getPersonalLoanByLan(lan) {
     LIMIT 1
   `;
 
-  const rows = await queryDB(
-    sql,
-    [lan]
-  );
+  const rows = await queryDB(sql, [lan]);
 
   return rows[0] || null;
 }
@@ -371,29 +304,16 @@ async function getDisbursementByLan(lan) {
 
  `;
 
-
-  const rows =
-    await queryDB(
-      sql,
-      [lan]
-    );
-
+  const rows = await queryDB(sql, [lan]);
 
   if (!rows.length) {
-
-    throw new Error(
-      "Disbursement details not found"
-    );
-
+    throw new Error("Disbursement details not found");
   }
 
-
   return rows[0];
-
 }
 
 async function getPersonalLoanSchedule(lan) {
-
   const sql = `
 SELECT
 id,
@@ -418,26 +338,16 @@ WHERE lan = ?
 ORDER BY due_date ASC
 `;
 
-  const rows =
-    await queryDB(
-      sql,
-      [lan]
-    );
+  const rows = await queryDB(sql, [lan]);
 
   if (!rows.length) {
-
-    throw new Error(
-      "Repayment schedule not found"
-    );
-
+    throw new Error("Repayment schedule not found");
   }
 
   return rows;
-
 }
 
 async function getExtraChargesByLan(lan) {
-
   const sql = `
 SELECT
 id,
@@ -463,16 +373,9 @@ ORDER BY created_at ASC
 
 `;
 
-
-
-  const rows =
-    await queryDB(
-      sql,
-      [lan]
-    );
+  const rows = await queryDB(sql, [lan]);
 
   return rows;
-
 }
 
 async function getApprovedLoans({
@@ -482,36 +385,21 @@ async function getApprovedLoans({
   sortBy = "created_at",
   sortDir = "desc",
 }) {
+  const limit = Math.min(100, Math.max(1, Number(pageSize)));
 
-  const limit = Math.min(
-    100,
-    Math.max(1, Number(pageSize))
-  );
-
-  const offset =
-    (Number(page) - 1) * limit;
-
+  const offset = (Number(page) - 1) * limit;
 
   const allowedSort = [
     "created_at",
     "lan",
     "customer_full_name",
     "requested_amount",
-    "bre_approved_loan_amount"
+    "bre_approved_loan_amount",
   ];
 
+  const sortColumn = allowedSort.includes(sortBy) ? sortBy : "created_at";
 
-  const sortColumn =
-    allowedSort.includes(sortBy)
-      ? sortBy
-      : "created_at";
-
-
-  const direction =
-    sortDir.toLowerCase() === "asc"
-      ? "ASC"
-      : "DESC";
-
+  const direction = sortDir.toLowerCase() === "asc" ? "ASC" : "DESC";
 
   const searchCondition = search
     ? `
@@ -523,15 +411,9 @@ async function getApprovedLoans({
     `
     : "";
 
-
   const searchParams = search
-    ? [
-      `%${search}%`,
-      `%${search}%`,
-      `%${search}%`
-    ]
+    ? [`%${search}%`, `%${search}%`, `%${search}%`]
     : [];
-
 
   const dataQuery = `
     SELECT
@@ -558,7 +440,6 @@ async function getApprovedLoans({
     OFFSET ?
   `;
 
-
   const countQuery = `
     SELECT COUNT(*) AS total
 
@@ -569,43 +450,20 @@ async function getApprovedLoans({
     ${searchCondition}
   `;
 
+  const [rows] = await db.query(dataQuery, [...searchParams, limit, offset]);
 
-
-  const [rows] =
-    await db.query(
-      dataQuery,
-      [
-        ...searchParams,
-        limit,
-        offset
-      ]
-    );
-
-
-  const [[countResult]] =
-    await db.query(
-      countQuery,
-      searchParams
-    );
-
+  const [[countResult]] = await db.query(countQuery, searchParams);
 
   return {
-
     rows,
 
     pagination: {
       page: Number(page),
       pageSize: limit,
-      total: Number(
-        countResult.total || 0
-      ),
-      totalPages: Math.ceil(
-        countResult.total / limit
-      )
-    }
-
+      total: Number(countResult.total || 0),
+      totalPages: Math.ceil(countResult.total / limit),
+    },
   };
-
 }
 
 const getDisbursedLoans = async ({
@@ -615,33 +473,13 @@ const getDisbursedLoans = async ({
   sortBy = "created_at",
   sortDir = "desc",
 } = {}) => {
+  const pg = Math.max(1, parseInt(page, 10) || 1);
 
-  const pg =
-    Math.max(
-      1,
-      parseInt(page, 10) || 1
-    );
+  const limit = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 25));
 
+  const offset = (pg - 1) * limit;
 
-  const limit =
-    Math.min(
-      100,
-      Math.max(
-        1,
-        parseInt(pageSize, 10) || 25
-      )
-    );
-
-
-  const offset =
-    (pg - 1) * limit;
-
-
-  const safeSortDir =
-    String(sortDir).toLowerCase() === "asc"
-      ? "ASC"
-      : "DESC";
-
+  const safeSortDir = String(sortDir).toLowerCase() === "asc" ? "ASC" : "DESC";
 
   const allowedSort = [
     "created_at",
@@ -654,20 +492,12 @@ const getDisbursedLoans = async ({
     "status",
   ];
 
+  const sortColumn = allowedSort.includes(sortBy) ? sortBy : "created_at";
 
-  const sortColumn =
-    allowedSort.includes(sortBy)
-      ? sortBy
-      : "created_at";
+  const cleanSearch = String(search || "").trim();
 
-
-  const cleanSearch =
-    String(search || "").trim();
-
-
-  const searchClause =
-    cleanSearch
-      ? `
+  const searchClause = cleanSearch
+    ? `
         AND (
           pa.lan LIKE ?
           OR pa.customer_full_name LIKE ?
@@ -675,19 +505,16 @@ const getDisbursedLoans = async ({
           OR pa.external_application_reference LIKE ?
         )
       `
-      : "";
+    : "";
 
-
-  const searchParams =
-    cleanSearch
-      ? [
+  const searchParams = cleanSearch
+    ? [
         `%${cleanSearch}%`,
         `%${cleanSearch}%`,
         `%${cleanSearch}%`,
         `%${cleanSearch}%`,
       ]
-      : [];
-
+    : [];
 
   const countSql = `
     SELECT
@@ -699,7 +526,6 @@ const getDisbursedLoans = async ({
 
     ${searchClause}
   `;
-
 
   const dataSql = `
     SELECT
@@ -732,57 +558,27 @@ const getDisbursedLoans = async ({
     LIMIT ? OFFSET ?
   `;
 
+  const [[countRows], [rows]] = await Promise.all([
+    db.query(countSql, searchParams),
 
-  const [
-    [countRows],
-    [rows],
-  ] = await Promise.all([
-
-    db.query(
-      countSql,
-      searchParams
-    ),
-
-    db.query(
-      dataSql,
-      [
-        ...searchParams,
-        limit,
-        offset,
-      ]
-    ),
-
+    db.query(dataSql, [...searchParams, limit, offset]),
   ]);
 
-
-  const total =
-    Number(
-      countRows[0]?.total || 0
-    );
-
+  const total = Number(countRows[0]?.total || 0);
 
   return {
-
     rows,
 
     pagination: {
-
       page: pg,
 
       pageSize: limit,
 
       total,
 
-      totalPages:
-        Math.max(
-          1,
-          Math.ceil(total / limit)
-        ),
-
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     },
-
   };
-
 };
 
 /*
@@ -792,7 +588,6 @@ const getDisbursedLoans = async ({
 */
 
 async function getCustomerDetailsByLan(lan) {
-
   lan = String(lan || "")
     .trim()
     .toUpperCase();
@@ -876,17 +671,14 @@ async function getCustomerDetailsByLan(lan) {
 
     LIMIT 1
     `,
-    [lan]
+    [lan],
   );
-
 
   if (!rows.length) {
     return null;
   }
 
-
   const row = rows[0];
-
 
   // =====================================================
   // EXTRACT BUREAU / CIBIL SCORE
@@ -895,247 +687,157 @@ async function getCustomerDetailsByLan(lan) {
   let bureauScore = null;
 
   if (row.bureau_api_response) {
-
-    const bureauResponse =
-      String(row.bureau_api_response).trim();
-
+    const bureauResponse = String(row.bureau_api_response).trim();
 
     // ---------------------------------------------
     // 1. Dummy / JSON response
     // ---------------------------------------------
 
     try {
-
-      const parsed =
-        JSON.parse(bureauResponse);
+      const parsed = JSON.parse(bureauResponse);
 
       bureauScore =
-        parsed.score ??
-        parsed.cibilScore ??
-        parsed.bureauScore ??
-        null;
-
+        parsed.score ?? parsed.cibilScore ?? parsed.bureauScore ?? null;
     } catch (error) {
-
       // ---------------------------------------------
       // 2. Actual Experian XML response
       // ---------------------------------------------
 
-      const scoreMatch =
-        bureauResponse.match(
-          /<BureauScore>\s*(\d+)\s*<\/BureauScore>/i
-        );
+      const scoreMatch = bureauResponse.match(
+        /<BureauScore>\s*(\d+)\s*<\/BureauScore>/i,
+      );
 
       if (scoreMatch) {
-
-        bureauScore =
-          Number(scoreMatch[1]);
-
+        bureauScore = Number(scoreMatch[1]);
       }
-
     }
-
   }
-
 
   // =====================================================
   // RESPONSE
   // =====================================================
 
   return {
-
     applicant: {
+      lan: row.lan,
 
-      lan:
-        row.lan,
+      partnerApplicationId: row.partner_application_id,
 
-      partnerApplicationId:
-        row.partner_application_id,
+      partnerApplicationNumber: row.partner_application_number,
 
-      partnerApplicationNumber:
-        row.partner_application_number,
+      fullName: row.customer_full_name,
 
-      fullName:
-        row.customer_full_name,
+      firstName: row.customer_first_name,
 
-      firstName:
-        row.customer_first_name,
+      middleName: row.customer_middle_name,
 
-      middleName:
-        row.customer_middle_name,
+      lastName: row.customer_last_name,
 
-      lastName:
-        row.customer_last_name,
+      fatherName: row.customer_father_name,
 
-      fatherName:
-        row.customer_father_name,
+      pan: row.pan_number,
 
-      pan:
-        row.pan_number,
+      dob: row.date_of_birth,
 
-      dob:
-        row.date_of_birth,
+      gender: row.gender,
 
-      gender:
-        row.gender,
+      mobile: row.mobile_number,
 
-      mobile:
-        row.mobile_number,
-
-      email:
-        row.email
-
+      email: row.email,
     },
-
 
     employment: {
+      type: row.employment_employment_type,
 
-      type:
-        row.employment_employment_type,
+      company: row.employment_company_name,
 
-      company:
-        row.employment_company_name,
+      designation: row.employment_designation,
 
-      designation:
-        row.employment_designation,
-
-      monthlyIncome:
-        row.employment_monthly_income
-
+      monthlyIncome: row.employment_monthly_income,
     },
-
 
     loanFinancial: {
+      requestedAmount: row.requested_amount,
 
-      requestedAmount:
-        row.requested_amount,
+      requestedTenure: row.requested_tenure,
 
-      requestedTenure:
-        row.requested_tenure,
+      tenureType: row.tenure_type,
 
-      tenureType:
-        row.tenure_type,
+      interestRate: row.interest_rate,
 
-      interestRate:
-        row.interest_rate,
+      processingFee: row.processing_fee,
 
-      processingFee:
-        row.processing_fee,
+      selectedOfferAmount: row.selected_offer_amount,
 
-      selectedOfferAmount:
-        row.selected_offer_amount,
-
-      selectedOfferTenure:
-        row.selected_offer_tenure
-
+      selectedOfferTenure: row.selected_offer_tenure,
     },
-
 
     address: {
+      line1: row.perm_address_line1,
 
-      line1:
-        row.perm_address_line1,
+      line2: row.perm_address_line2,
 
-      line2:
-        row.perm_address_line2,
+      city: row.perm_city,
 
-      city:
-        row.perm_city,
+      district: row.perm_district,
 
-      district:
-        row.perm_district,
+      state: row.perm_state,
 
-      state:
-        row.perm_state,
-
-      pincode:
-        row.perm_pincode
-
+      pincode: row.perm_pincode,
     },
-
 
     bank: {
+      accountHolder: row.bank_account_holder_name,
 
-      accountHolder:
-        row.bank_account_holder_name,
+      accountNumber: row.bank_account_number,
 
-      accountNumber:
-        row.bank_account_number,
+      ifsc: row.bank_ifsc_code,
 
-      ifsc:
-        row.bank_ifsc_code,
+      bankName: row.bank_name,
 
-      bankName:
-        row.bank_name,
-
-      accountType:
-        row.bank_account_type
-
+      accountType: row.bank_account_type,
     },
-
 
     // =====================================================
     // BRE
     // =====================================================
 
     bre: {
+      policyVersion: row.bre_policy_version,
 
-      policyVersion:
-        row.bre_policy_version,
+      decisionStage: row.bre_decision_stage,
 
-      decisionStage:
-        row.bre_decision_stage,
+      status: row.bre_status,
 
-      status:
-        row.bre_status,
+      reason: row.bre_reason,
 
-      reason:
-        row.bre_reason,
+      creditLimit: row.bre_credit_limit,
 
-      creditLimit:
-        row.bre_credit_limit,
+      approvedAmount: row.bre_approved_loan_amount,
 
-      approvedAmount:
-        row.bre_approved_loan_amount,
+      grossApprovedAmount: row.bre_gross_approved_amount,
 
-      grossApprovedAmount:
-        row.bre_gross_approved_amount,
+      checkedAt: row.bre_checked_at,
 
-      checkedAt:
-        row.bre_checked_at,
+      finalStatus: row.bre_final_status,
 
-      finalStatus:
-        row.bre_final_status,
-
-      finalReason:
-        row.bre_final_reason
-
+      finalReason: row.bre_final_reason,
     },
-
 
     // =====================================================
     // BUREAU / CIBIL
     // =====================================================
 
     bureau: {
+      status: row.bureau_status,
 
-      status:
-        row.bureau_status,
+      score: bureauScore,
 
-      score:
-        bureauScore,
-
-      checkedAt:
-        row.bureau_checked_at
-
+      checkedAt: row.bureau_checked_at,
     },
 
-
-    loanStatus:
-      row.status
-
+    loanStatus: row.status,
   };
-
 }
 
 /*
@@ -1154,4 +856,3 @@ module.exports = {
   getDisbursedLoans,
   getCustomerDetailsByLan,
 };
-

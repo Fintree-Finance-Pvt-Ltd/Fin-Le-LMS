@@ -6,18 +6,15 @@ import {
   ChevronRight,
   Download,
   WalletCards,
-  FileText
+  FileText,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 
 import { getAllLoans } from "../services/loanService";
 
-
 function AllLoans() {
-
   const navigate = useNavigate();
-
 
   const [loans, setLoans] = useState([]);
 
@@ -31,164 +28,92 @@ function AllLoans() {
 
   const [exporting, setExporting] = useState(false);
 
-
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 25,
     total: 0,
-    totalPages: 0
+    totalPages: 0,
   });
 
-
-  const fetchLoans = async (
-    targetPage = page,
-    targetSearch = search
-  ) => {
-
+  const fetchLoans = async (targetPage = page, targetSearch = search) => {
     try {
-
       setLoading(true);
 
       setError("");
 
+      const data = await getAllLoans({
+        page: targetPage,
 
-      const data =
-        await getAllLoans({
+        pageSize: 25,
 
-          page: targetPage,
+        search: targetSearch,
 
-          pageSize: 25,
+        sortBy: "created_at",
 
-          search: targetSearch,
+        sortDir: "desc",
+      });
 
-          sortBy: "created_at",
-
-          sortDir: "desc"
-
-        });
-
-
-      setLoans(
-        data.rows || []
-      );
-
+      setLoans(data.rows || []);
 
       setPagination(
         data.pagination || {
           page: 1,
           pageSize: 25,
           total: 0,
-          totalPages: 0
-        }
+          totalPages: 0,
+        },
       );
-
-    }
-
-    catch (err) {
-
+    } catch (err) {
       console.log(err);
 
-
-      setError(
-        err.message ||
-        "Failed to load loans"
-      );
-
-    }
-
-    finally {
-
+      setError(err.message || "Failed to load loans");
+    } finally {
       setLoading(false);
-
     }
-
   };
 
-
   useEffect(() => {
-
     fetchLoans(page, search);
 
     // eslint-disable-next-line
   }, [page]);
 
-
   const handleSearch = () => {
-
     if (page !== 1) {
-
       setPage(1);
-
-    }
-
-    else {
-
+    } else {
       fetchLoans(1, search);
-
     }
-
   };
 
-
   const formatMoney = (value) => {
-
-    if (
-      value === null ||
-      value === undefined ||
-      value === ""
-    ) {
+    if (value === null || value === undefined || value === "") {
       return "—";
     }
 
-
-    return new Intl.NumberFormat(
-      "en-IN",
-      {
-        style: "currency",
-        currency: "INR",
-        maximumFractionDigits: 2
-      }
-    ).format(
-      Number(value)
-    );
-
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(Number(value));
   };
 
-
   const formatDate = (value) => {
-
     if (!value) {
       return "—";
     }
 
+    const date = new Date(value);
 
-    const date =
-      new Date(value);
-
-
-    if (
-      Number.isNaN(
-        date.getTime()
-      )
-    ) {
+    if (Number.isNaN(date.getTime())) {
       return "—";
     }
 
-
-    return date.toLocaleDateString(
-      "en-IN"
-    );
-
+    return date.toLocaleDateString("en-IN");
   };
 
-
-  const getStatusStyle = (
-    status = ""
-  ) => {
-
-    const value =
-      status.toLowerCase();
-
+  const getStatusStyle = (status = "") => {
+    const value = status.toLowerCase();
 
     if (
       value.includes("approved") ||
@@ -198,296 +123,149 @@ function AllLoans() {
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
     }
 
-
-    if (
-      value.includes("rejected") ||
-      value.includes("failed")
-    ) {
+    if (value.includes("rejected") || value.includes("failed")) {
       return "border-red-200 bg-red-50 text-red-700";
     }
 
-
-    if (
-      value.includes("pending") ||
-      value.includes("processing")
-    ) {
+    if (value.includes("pending") || value.includes("processing")) {
       return "border-amber-200 bg-amber-50 text-amber-700";
     }
 
-
     return "border-slate-300 bg-slate-100 text-slate-700";
-
   };
 
-
-  const handleDocuments = (
-    loan
-  ) => {
-
-    navigate(
-      `/documents/${loan.lan}`
-    );
-
+  const handleDocuments = (loan) => {
+    navigate(`/documents/${loan.lan}`);
   };
 
-
-  const escapeCsvValue = (
-    value
-  ) => {
-
-    if (
-      value === null ||
-      value === undefined
-    ) {
+  const escapeCsvValue = (value) => {
+    if (value === null || value === undefined) {
       return "";
     }
 
+    const stringValue = String(value);
 
-    const stringValue =
-      String(value);
-
-
-    return `"${stringValue.replace(
-      /"/g,
-      '""'
-    )}"`;
-
+    return `"${stringValue.replace(/"/g, '""')}"`;
   };
 
+  const handleExportCsv = async () => {
+    try {
+      setExporting(true);
 
-  const handleExportCsv =
-    async () => {
+      setError("");
 
-      try {
+      const firstResponse = await getAllLoans({
+        page: 1,
 
-        setExporting(true);
+        pageSize: 25,
 
-        setError("");
+        search,
 
+        sortBy: "created_at",
 
-        const firstResponse =
-          await getAllLoans({
+        sortDir: "desc",
+      });
 
-            page: 1,
+      let allRows = firstResponse.rows || [];
 
-            pageSize: 25,
+      const totalPages = firstResponse.pagination?.totalPages || 1;
 
-            search,
+      for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
+        const response = await getAllLoans({
+          page: currentPage,
 
-            sortBy: "created_at",
+          pageSize: 25,
 
-            sortDir: "desc"
+          search,
 
-          });
+          sortBy: "created_at",
 
+          sortDir: "desc",
+        });
 
-        let allRows =
-          firstResponse.rows || [];
-
-
-        const totalPages =
-          firstResponse.pagination
-            ?.totalPages || 1;
-
-
-        for (
-          let currentPage = 2;
-          currentPage <= totalPages;
-          currentPage++
-        ) {
-
-          const response =
-            await getAllLoans({
-
-              page: currentPage,
-
-              pageSize: 25,
-
-              search,
-
-              sortBy: "created_at",
-
-              sortDir: "desc"
-
-            });
-
-
-          allRows = [
-            ...allRows,
-            ...(response.rows || [])
-          ];
-
-        }
-
-
-        if (
-          allRows.length === 0
-        ) {
-
-          setError(
-            "No loan records available to export."
-          );
-
-          return;
-
-        }
-
-
-        const headers = [
-
-          "Customer Name",
-
-          "Mobile",
-
-          "LAN",
-
-          "Partner ID",
-
-          "Loan Amount",
-
-          "Disbursement Amount",
-
-          "Disbursement Date",
-
-          "Status"
-
-        ];
-
-
-        const rows =
-          allRows.map(
-            (loan) => [
-
-              loan.customer_name || "",
-
-              loan.mobile || "",
-
-              loan.lan || "",
-
-              loan.partner_application_number || "",
-
-              loan.loan_amount ?? "",
-
-              loan.disbursal_amount ?? "",
-
-              loan.disbursement_date
-                ? formatDate(
-                    loan.disbursement_date
-                  )
-                : "",
-
-              loan.status || ""
-
-            ]
-          );
-
-
-        const csvContent = [
-
-          headers
-            .map(
-              escapeCsvValue
-            )
-            .join(","),
-
-          ...rows.map(
-            (row) =>
-              row
-                .map(
-                  escapeCsvValue
-                )
-                .join(",")
-          )
-
-        ].join("\n");
-
-
-        const blob =
-          new Blob(
-            [
-              "\uFEFF",
-              csvContent
-            ],
-            {
-              type:
-                "text/csv;charset=utf-8;"
-            }
-          );
-
-
-        const url =
-          URL.createObjectURL(
-            blob
-          );
-
-
-        const link =
-          document.createElement(
-            "a"
-          );
-
-
-        const currentDate =
-          new Date()
-            .toISOString()
-            .slice(0, 10);
-
-
-        link.href = url;
-
-
-        link.download =
-          `personal-loans-${currentDate}.csv`;
-
-
-        document.body.appendChild(
-          link
-        );
-
-
-        link.click();
-
-
-        document.body.removeChild(
-          link
-        );
-
-
-        URL.revokeObjectURL(
-          url
-        );
-
+        allRows = [...allRows, ...(response.rows || [])];
       }
 
-      catch (err) {
+      if (allRows.length === 0) {
+        setError("No loan records available to export.");
 
-        console.error(
-          "CSV export error:",
-          err
-        );
-
-
-        setError(
-          err.message ||
-          "Failed to export loans."
-        );
-
+        return;
       }
 
-      finally {
+      const headers = [
+        "Customer Name",
 
-        setExporting(false);
+        "Mobile",
 
-      }
+        "LAN",
 
-    };
+        "Partner ID",
 
+        "Loan Amount",
+
+        "Disbursement Amount",
+
+        "Disbursement Date",
+
+        "Status",
+      ];
+
+      const rows = allRows.map((loan) => [
+        loan.customer_name || "",
+
+        loan.mobile || "",
+
+        loan.lan || "",
+
+        loan.partner_application_number || "",
+
+        loan.loan_amount ?? "",
+
+        loan.disbursal_amount ?? "",
+
+        loan.disbursement_date ? formatDate(loan.disbursement_date) : "",
+
+        loan.status || "",
+      ]);
+
+      const csvContent = [
+        headers.map(escapeCsvValue).join(","),
+
+        ...rows.map((row) => row.map(escapeCsvValue).join(",")),
+      ].join("\n");
+
+      const blob = new Blob(["\uFEFF", csvContent], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+
+      const currentDate = new Date().toISOString().slice(0, 10);
+
+      link.href = url;
+
+      link.download = `personal-loans-${currentDate}.csv`;
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("CSV export error:", err);
+
+      setError(err.message || "Failed to export loans.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
-
     <div className="w-full">
-
-
       <div
         className="
           overflow-hidden
@@ -498,8 +276,6 @@ function AllLoans() {
           shadow-sm
         "
       >
-
-
         <div
           className="
             flex
@@ -514,8 +290,6 @@ function AllLoans() {
             lg:justify-between
           "
         >
-
-
           <div
             className="
               flex
@@ -523,8 +297,6 @@ function AllLoans() {
               gap-3
             "
           >
-
-
             <div
               className="
                 flex
@@ -537,14 +309,10 @@ function AllLoans() {
                 text-white
               "
             >
-
               <WalletCards size={20} />
-
             </div>
 
-
             <div>
-
               <h1
                 className="
                   text-xl
@@ -552,11 +320,8 @@ function AllLoans() {
                   text-slate-950
                 "
               >
-
                 Personal Loan All Loans
-
               </h1>
-
 
               <p
                 className="
@@ -564,15 +329,10 @@ function AllLoans() {
                   text-slate-500
                 "
               >
-
                 View all Personal Loan applications
-
               </p>
-
             </div>
-
           </div>
-
 
           <div
             className="
@@ -583,20 +343,10 @@ function AllLoans() {
               sm:items-center
             "
           >
-
-
             <button
-
               type="button"
-
-              onClick={
-                handleExportCsv
-              }
-
-              disabled={
-                exporting
-              }
-
+              onClick={handleExportCsv}
+              disabled={exporting}
               className="
                 flex
                 items-center
@@ -613,26 +363,15 @@ function AllLoans() {
                 disabled:cursor-not-allowed
                 disabled:opacity-60
               "
-
             >
-
               <Download size={15} />
 
-              {
-                exporting
-                  ? "Exporting..."
-                  : "Export CSV"
-              }
-
+              {exporting ? "Exporting..." : "Export CSV"}
             </button>
 
-
             <div className="relative">
-
               <Search
-
                 size={16}
-
                 className="
                   absolute
                   left-3
@@ -640,39 +379,17 @@ function AllLoans() {
                   -translate-y-1/2
                   text-slate-400
                 "
-
               />
 
-
               <input
-
-                value={
-                  search
-                }
-
-                onChange={
-                  (e) =>
-                    setSearch(
-                      e.target.value
-                    )
-                }
-
-                onKeyDown={
-                  (e) => {
-
-                    if (
-                      e.key === "Enter"
-                    ) {
-
-                      handleSearch();
-
-                    }
-
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearch();
                   }
-                }
-
+                }}
                 placeholder="Search LAN, name, mobile..."
-
                 className="
                   h-10
                   rounded-xl
@@ -684,33 +401,16 @@ function AllLoans() {
                   outline-none
                   focus:border-emerald-500
                 "
-
               />
-
             </div>
-
 
             <div className="text-sm text-slate-600">
-
-              <span className="font-bold">
-
-                {pagination.total || 0}
-
-              </span>
-
-              {" "}
-              Records
-
+              <span className="font-bold">{pagination.total || 0}</span> Records
             </div>
-
           </div>
-
         </div>
 
-
-        {
-          error &&
-
+        {error && (
           <div
             className="
               mx-5
@@ -722,12 +422,9 @@ function AllLoans() {
               text-red-700
             "
           >
-
             {error}
-
           </div>
-        }
-
+        )}
 
         <div
           className="
@@ -738,40 +435,27 @@ function AllLoans() {
             border-slate-200
           "
         >
-
-
           <table
             className="
               w-full
               border-collapse
             "
           >
-
-
             <thead>
-
               <tr className="bg-slate-50">
-
-                {
-                  [
-                    "Customer Name",
-                    "LAN",
-                    "Partner ID",
-                    "Loan Amount",
-                    "Disbursement Amount",
-                    "Disbursement Date",
-                    "Status",
-                    "Action"
-                  ].map(
-                    (head) => (
-
-                      <th
-
-                        key={
-                          head
-                        }
-
-                        className="
+                {[
+                  "Customer Name",
+                  "LAN",
+                  "Partner ID",
+                  "Loan Amount",
+                  "Disbursement Amount",
+                  "Disbursement Date",
+                  "Status",
+                  "Action",
+                ].map((head) => (
+                  <th
+                    key={head}
+                    className="
                           px-4
                           py-4
                           text-left
@@ -781,82 +465,41 @@ function AllLoans() {
                           tracking-wide
                           text-slate-500
                         "
-
-                      >
-
-                        {head}
-
-                      </th>
-
-                    )
-                  )
-                }
-
+                  >
+                    {head}
+                  </th>
+                ))}
               </tr>
-
             </thead>
 
-
             <tbody>
-
-              {
-                loading
-                  ? (
-
-                    <tr>
-
-                      <td
-
-                        colSpan="8"
-
-                        className="
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan="8"
+                    className="
                           py-20
                           text-center
                           text-slate-500
                         "
-
-                      >
-
-                        Loading loans...
-
-                      </td>
-
-                    </tr>
-
-                  )
-                  : loans.length > 0
-                    ? (
-
-                      loans.map(
-                        (loan) => (
-
-                          <tr
-
-                            key={
-                              loan.id ||
-                              loan.lan
-                            }
-
-                            className="
+                  >
+                    Loading loans...
+                  </td>
+                </tr>
+              ) : loans.length > 0 ? (
+                loans.map((loan) => (
+                  <tr
+                    key={loan.id || loan.lan}
+                    className="
                               transition
                               duration-200
                               hover:bg-emerald-50/40
                             "
-
-                          >
-
-
-                            <td className="px-4 py-4">
-
-                              <button
-
-                                onClick={() =>
-                                  navigate(
-                                    `/loan-details/${loan.lan}`
-                                  )
-                                }
-
-                                className="
+                  >
+                    <td className="px-4 py-4">
+                      <button
+                        onClick={() => navigate(`/loan-details/${loan.lan}`)}
+                        className="
                                   font-semibold
                                   uppercase
                                   text-slate-900
@@ -864,45 +507,26 @@ function AllLoans() {
                                   hover:translate-x-1
                                   hover:text-emerald-600
                                 "
+                      >
+                        {loan.customer_name || "—"}
+                      </button>
 
-                              >
-
-                                {
-                                  loan.customer_name ||
-                                  "—"
-                                }
-
-                              </button>
-
-
-                              <p
-                                className="
+                      <p
+                        className="
                                   text-xs
                                   text-slate-400
                                 "
-                              >
+                      >
+                        {loan.mobile || "—"}
+                      </p>
+                    </td>
 
-                                {
-                                  loan.mobile ||
-                                  "—"
-                                }
-
-                              </p>
-
-                            </td>
-
-
-                            <td className="px-4 py-4">
-
-                              <button
-
-                                onClick={() =>
-                                  navigate(
-                                    `/customer-details/${loan.lan}`
-                                  )
-                                }
-
-                                className="
+                    <td className="px-4 py-4">
+                      <button
+                        onClick={() =>
+                          navigate(`/customer-details/${loan.lan}`)
+                        }
+                        className="
                                   rounded-md
                                   border
                                   border-slate-200
@@ -916,101 +540,47 @@ function AllLoans() {
                                   hover:bg-emerald-50
                                   hover:text-emerald-700
                                 "
+                      >
+                        {loan.lan || "—"}
+                      </button>
+                    </td>
 
-                              >
+                    <td className="px-4 py-4 text-xs">
+                      {loan.partner_application_number || "—"}
+                    </td>
 
-                                {
-                                  loan.lan ||
-                                  "—"
-                                }
+                    <td className="px-4 py-4 font-semibold">
+                      {formatMoney(loan.loan_amount)}
+                    </td>
 
-                              </button>
+                    <td className="px-4 py-4 font-bold">
+                      {formatMoney(loan.disbursal_amount)}
+                    </td>
 
-                            </td>
+                    <td className="px-4 py-4">
+                      {formatDate(loan.disbursement_date)}
+                    </td>
 
-
-                            <td className="px-4 py-4 text-xs">
-
-                              {
-                                loan.partner_application_number ||
-                                "—"
-                              }
-
-                            </td>
-
-
-                            <td className="px-4 py-4 font-semibold">
-
-                              {
-                                formatMoney(
-                                  loan.loan_amount
-                                )
-                              }
-
-                            </td>
-
-
-                            <td className="px-4 py-4 font-bold">
-
-                              {
-                                formatMoney(
-                                  loan.disbursal_amount
-                                )
-                              }
-
-                            </td>
-
-
-                            <td className="px-4 py-4">
-
-                              {
-                                formatDate(
-                                  loan.disbursement_date
-                                )
-                              }
-
-                            </td>
-
-
-                            <td className="px-4 py-4">
-
-                              <span
-
-                                className={`
+                    <td className="px-4 py-4">
+                      <span
+                        className={`
                                   rounded-lg
                                   border
                                   px-3
                                   py-1
                                   text-[10px]
                                   font-bold
-                                  ${getStatusStyle(
-                                    loan.status
-                                  )}
+                                  ${getStatusStyle(loan.status)}
                                 `}
+                      >
+                        {loan.status || "—"}
+                      </span>
+                    </td>
 
-                              >
-
-                                {
-                                  loan.status ||
-                                  "—"
-                                }
-
-                              </span>
-
-                            </td>
-
-
-                            <td className="px-4 py-4">
-
-                              <button
-
-                                onClick={() =>
-                                  handleDocuments(
-                                    loan
-                                  )
-                                }
-
-                                className="
+                    <td className="px-4 py-4">
+                      <button
+                        onClick={() => handleDocuments(loan)}
+                        className="
                                   flex
                                   items-center
                                   gap-2
@@ -1026,55 +596,30 @@ function AllLoans() {
                                   transition
                                   hover:bg-emerald-100
                                 "
-
-                              >
-
-                                <FileText size={14} />
-
-                                Documents
-
-                              </button>
-
-                            </td>
-
-
-                          </tr>
-
-                        )
-                      )
-
-                    )
-                    : (
-
-                      <tr>
-
-                        <td
-
-                          colSpan="8"
-
-                          className="
+                      >
+                        <FileText size={14} />
+                        Documents
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan="8"
+                    className="
                             py-20
                             text-center
                             text-slate-500
                           "
-
-                        >
-
-                          No loans found.
-
-                        </td>
-
-                      </tr>
-
-                    )
-              }
-
+                  >
+                    No loans found.
+                  </td>
+                </tr>
+              )}
             </tbody>
-
           </table>
-
         </div>
-
 
         <div
           className="
@@ -1084,20 +629,9 @@ function AllLoans() {
             p-4
           "
         >
-
-
           <button
-
-            disabled={
-              page <= 1
-            }
-
-            onClick={() =>
-              setPage(
-                page - 1
-              )
-            }
-
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
             className="
               rounded-lg
               border
@@ -1105,13 +639,9 @@ function AllLoans() {
               py-2
               disabled:opacity-40
             "
-
           >
-
             <ChevronLeft size={16} />
-
           </button>
-
 
           <div
             className="
@@ -1122,25 +652,12 @@ function AllLoans() {
               text-white
             "
           >
-
             {page}
-
           </div>
 
-
           <button
-
-            disabled={
-              page >=
-              pagination.totalPages
-            }
-
-            onClick={() =>
-              setPage(
-                page + 1
-              )
-            }
-
+            disabled={page >= pagination.totalPages}
+            onClick={() => setPage(page + 1)}
             className="
               rounded-lg
               border
@@ -1148,25 +665,13 @@ function AllLoans() {
               py-2
               disabled:opacity-40
             "
-
           >
-
             <ChevronRight size={16} />
-
           </button>
-
-
         </div>
-
-
       </div>
-
-
     </div>
-
   );
-
 }
-
 
 export default AllLoans;

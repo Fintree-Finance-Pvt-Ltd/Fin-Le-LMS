@@ -34,19 +34,11 @@ if (!fs.existsSync(PARTNER_DOCUMENTS_DIR)) {
   });
 }
 
-function buildPartnerDocumentFileName(
-  partnerDocumentId,
-  originalFileName,
-) {
-  const extension = path
-    .extname(String(originalFileName || ""))
-    .slice(0, 10);
+function buildPartnerDocumentFileName(partnerDocumentId, originalFileName) {
+  const extension = path.extname(String(originalFileName || "")).slice(0, 10);
 
   const base = path
-    .basename(
-      String(originalFileName || ""),
-      extension,
-    )
+    .basename(String(originalFileName || ""), extension)
     .replace(/[^a-zA-Z0-9_-]/g, "_")
     .slice(0, 80);
 
@@ -62,17 +54,14 @@ function normalizeProductCode(value) {
     .trim()
     .toUpperCase();
 
-  if (
-    code === "FFPL10011" ||
-    code === "PERSONAL_LOAN"
-  ) {
+  if (code === "FFPL10011" || code === "PERSONAL_LOAN") {
     return "FFPL10011";
   }
 
   throw apiError(
     400,
     "INVALID_PRODUCT_CODE",
-    `Unsupported productCode: ${value}`
+    `Unsupported productCode: ${value}`,
   );
 }
 
@@ -82,18 +71,13 @@ function normalizeProductCode(value) {
 |--------------------------------------------------------------------------
 */
 async function createApplication(body) {
-  const partnerApplicationId =
-    crypto.randomUUID();
+  const partnerApplicationId = crypto.randomUUID();
 
-  const partnerApplicationNumber =
-    `FT-${Date.now()}`;
+  const partnerApplicationNumber = `FT-${Date.now()}`;
 
-  const customer =
-    body.customer || {};
+  const customer = body.customer || {};
 
-  const panVerification =
-    body.panVerification || {};
-
+  const panVerification = body.panVerification || {};
 
   await query(
     `INSERT INTO pl_partner_applications
@@ -155,10 +139,7 @@ async function createApplication(body) {
       body.externalApplicationReference,
       body.lan,
       body.sourceSystem,
-      normalizeProductCode(
-        body.productCode
-      ),
-
+      normalizeProductCode(body.productCode),
 
       body.requestedAmount ?? null,
       body.requestedTenure ?? null,
@@ -188,10 +169,8 @@ async function createApplication(body) {
     ],
   );
 
-
   return {
-    externalApplicationReference:
-      body.externalApplicationReference,
+    externalApplicationReference: body.externalApplicationReference,
 
     lan: body.lan,
 
@@ -201,11 +180,9 @@ async function createApplication(body) {
 
     partnerApplicationNumber,
 
-    createdAt:
-      new Date().toISOString(),
+    createdAt: new Date().toISOString(),
   };
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -216,21 +193,14 @@ async function createApplication(body) {
 | pl_partner_application_consents
 |
 */
-async function saveConsent(
-  partnerApplicationId,
-  body,
-) {
-  const app =
-    await getApplication(partnerApplicationId);
+async function saveConsent(partnerApplicationId, body) {
+  const app = await getApplication(partnerApplicationId);
 
   if (!app) {
     return null;
   }
 
-
-  const consentReference =
-    `FIN-CONSENT-${crypto.randomUUID()}`;
-
+  const consentReference = `FIN-CONSENT-${crypto.randomUUID()}`;
 
   await query(
     `INSERT INTO pl_partner_application_consents
@@ -282,7 +252,6 @@ async function saveConsent(
     ],
   );
 
-
   await query(
     `UPDATE pl_partner_applications
      SET
@@ -299,34 +268,25 @@ async function saveConsent(
     [app.id],
   );
 
-
   const [rows] = await query(
     `SELECT recorded_at
      FROM pl_partner_application_consents
      WHERE application_id = ?
        AND consent_reference = ?
      LIMIT 1`,
-    [
-      app.id,
-      consentReference,
-    ],
+    [app.id, consentReference],
   );
-
 
   return {
     status: "RECORDED",
 
     consentReference,
 
-    recordedAt:
-      rows[0]?.recorded_at
-        ? new Date(
-          rows[0].recorded_at,
-        ).toISOString()
-        : new Date().toISOString(),
+    recordedAt: rows[0]?.recorded_at
+      ? new Date(rows[0].recorded_at).toISOString()
+      : new Date().toISOString(),
   };
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -335,27 +295,15 @@ async function saveConsent(
 */
 
 function getValue(object, path) {
-  return path
-    .split(".")
-    .reduce(
-      (value, key) =>
-        value?.[key],
-      object,
-    );
+  return path.split(".").reduce((value, key) => value?.[key], object);
 }
 
-function keepExisting(
-  incoming,
-  existing,
-) {
+function keepExisting(incoming, existing) {
   // Not sent, explicit null, or empty string → keep previous value
   if (
     incoming === undefined ||
     incoming === null ||
-    (
-      typeof incoming === "string" &&
-      incoming.trim() === ""
-    )
+    (typeof incoming === "string" && incoming.trim() === "")
   ) {
     return existing ?? null;
   }
@@ -373,281 +321,122 @@ function keepExisting(
 |
 */
 const PROFILE_FIELDS = [
-
   /*
   | Customer
   */
-  [
-    "customer_full_name",
-    "customer.fullName",
-  ],
+  ["customer_full_name", "customer.fullName"],
 
-  [
-    "customer_first_name",
-    "customer.firstName",
-  ],
+  ["customer_first_name", "customer.firstName"],
 
-  [
-    "customer_middle_name",
-    "customer.middleName",
-  ],
+  ["customer_middle_name", "customer.middleName"],
 
-  [
-    "customer_last_name",
-    "customer.lastName",
-  ],
+  ["customer_last_name", "customer.lastName"],
 
-  [
-    "customer_father_name",
-    "customer.fatherName",
-  ],
+  ["customer_father_name", "customer.fatherName"],
 
-  [
-    "pan_number",
-    "customer.panNumber",
-  ],
+  ["pan_number", "customer.panNumber"],
 
-  [
-    "date_of_birth",
-    "customer.dateOfBirth",
-  ],
+  ["date_of_birth", "customer.dateOfBirth"],
 
-  [
-    "gender",
-    "customer.gender",
-  ],
+  ["gender", "customer.gender"],
 
-  [
-    "mobile_number",
-    "customer.mobileNumber",
-  ],
+  ["mobile_number", "customer.mobileNumber"],
 
-  [
-    "email",
-    "customer.email",
-  ],
-
+  ["email", "customer.email"],
 
   /*
   | Employment
   */
-  [
-    "employment_employment_type",
-    "employment.employmentType",
-  ],
+  ["employment_employment_type", "employment.employmentType"],
 
-  [
-    "employment_company_type",
-    "employment.companyType",
-  ],
+  ["employment_company_type", "employment.companyType"],
 
-  [
-    "employment_company_name",
-    "employment.companyName",
-  ],
+  ["employment_company_name", "employment.companyName"],
 
-  [
-    "employment_designation",
-    "employment.designation",
-  ],
+  ["employment_designation", "employment.designation"],
 
-  [
-    "employment_business_name",
-    "employment.businessName",
-  ],
+  ["employment_business_name", "employment.businessName"],
 
-  [
-    "employment_business_constitution",
-    "employment.businessConstitution",
-  ],
+  ["employment_business_constitution", "employment.businessConstitution"],
 
-  [
-    "employment_monthly_income",
-    "employment.monthlyIncome",
-  ],
+  ["employment_monthly_income", "employment.monthlyIncome"],
 
-  [
-    "employment_annual_turnover",
-    "employment.annualTurnover",
-  ],
+  ["employment_annual_turnover", "employment.annualTurnover"],
 
-  [
-    "employment_employment_vintage",
-    "employment.employmentVintage",
-  ],
+  ["employment_employment_vintage", "employment.employmentVintage"],
 
-  [
-    "employment_business_vintage",
-    "employment.businessVintage",
-  ],
+  ["employment_business_vintage", "employment.businessVintage"],
 
-  [
-    "employment_salary_mode",
-    "employment.salaryMode",
-  ],
+  ["employment_salary_mode", "employment.salaryMode"],
 
-  [
-    "employment_completed_at",
-    "employment.completedAt",
-  ],
-
+  ["employment_completed_at", "employment.completedAt"],
 
   /*
   | Aadhaar KYC
   */
-  [
-    "aadhaar_status",
-    "aadhaarKyc.status",
-  ],
+  ["aadhaar_status", "aadhaarKyc.status"],
 
-  [
-    "aadhaar_masked",
-    "aadhaarKyc.maskedAadhaar",
-  ],
+  ["aadhaar_masked", "aadhaarKyc.maskedAadhaar"],
 
-  [
-    "aadhaar_verified_name",
-    "aadhaarKyc.verifiedName",
-  ],
+  ["aadhaar_verified_name", "aadhaarKyc.verifiedName"],
 
-  [
-    "aadhaar_date_of_birth",
-    "aadhaarKyc.dateOfBirth",
-  ],
+  ["aadhaar_date_of_birth", "aadhaarKyc.dateOfBirth"],
 
-  [
-    "aadhaar_gender",
-    "aadhaarKyc.gender",
-  ],
+  ["aadhaar_gender", "aadhaarKyc.gender"],
 
-  [
-    "aadhaar_provider",
-    "aadhaarKyc.provider",
-  ],
+  ["aadhaar_provider", "aadhaarKyc.provider"],
 
-  [
-    "aadhaar_provider_reference",
-    "aadhaarKyc.providerReference",
-  ],
+  ["aadhaar_provider_reference", "aadhaarKyc.providerReference"],
 
-  [
-    "aadhaar_verified_at",
-    "aadhaarKyc.verifiedAt",
-  ],
-
+  ["aadhaar_verified_at", "aadhaarKyc.verifiedAt"],
 
   /*
   | Permanent Address
   */
-  [
-    "perm_address_line1",
-    "permanentAddress.addressLine1",
-  ],
+  ["perm_address_line1", "permanentAddress.addressLine1"],
 
-  [
-    "perm_address_line2",
-    "permanentAddress.addressLine2",
-  ],
+  ["perm_address_line2", "permanentAddress.addressLine2"],
 
-  [
-    "perm_landmark",
-    "permanentAddress.landmark",
-  ],
+  ["perm_landmark", "permanentAddress.landmark"],
 
-  [
-    "perm_locality",
-    "permanentAddress.locality",
-  ],
+  ["perm_locality", "permanentAddress.locality"],
 
-  [
-    "perm_district",
-    "permanentAddress.district",
-  ],
+  ["perm_district", "permanentAddress.district"],
 
-  [
-    "perm_city",
-    "permanentAddress.city",
-  ],
+  ["perm_city", "permanentAddress.city"],
 
-  [
-    "perm_state",
-    "permanentAddress.state",
-  ],
+  ["perm_state", "permanentAddress.state"],
 
-  [
-    "perm_country",
-    "permanentAddress.country",
-  ],
+  ["perm_country", "permanentAddress.country"],
 
-  [
-    "perm_pincode",
-    "permanentAddress.pincode",
-  ],
+  ["perm_pincode", "permanentAddress.pincode"],
 
-  [
-    "perm_source",
-    "permanentAddress.source",
-  ],
-
+  ["perm_source", "permanentAddress.source"],
 
   /*
   | Current Address
   */
-  [
-    "curr_same_as_perm",
-    "currentAddress.sameAsPermanent",
-  ],
+  ["curr_same_as_perm", "currentAddress.sameAsPermanent"],
 
-  [
-    "curr_address_line1",
-    "currentAddress.addressLine1",
-  ],
+  ["curr_address_line1", "currentAddress.addressLine1"],
 
-  [
-    "curr_address_line2",
-    "currentAddress.addressLine2",
-  ],
+  ["curr_address_line2", "currentAddress.addressLine2"],
 
-  [
-    "curr_landmark",
-    "currentAddress.landmark",
-  ],
+  ["curr_landmark", "currentAddress.landmark"],
 
-  [
-    "curr_locality",
-    "currentAddress.locality",
-  ],
+  ["curr_locality", "currentAddress.locality"],
 
-  [
-    "curr_district",
-    "currentAddress.district",
-  ],
+  ["curr_district", "currentAddress.district"],
 
-  [
-    "curr_city",
-    "currentAddress.city",
-  ],
+  ["curr_city", "currentAddress.city"],
 
-  [
-    "curr_state",
-    "currentAddress.state",
-  ],
+  ["curr_state", "currentAddress.state"],
 
-  [
-    "curr_country",
-    "currentAddress.country",
-  ],
+  ["curr_country", "currentAddress.country"],
 
-  [
-    "curr_pincode",
-    "currentAddress.pincode",
-  ],
+  ["curr_pincode", "currentAddress.pincode"],
 
-  [
-    "curr_source",
-    "currentAddress.source",
-  ],
-
+  ["curr_source", "currentAddress.source"],
 
   /*
   | Current Address Evidence
@@ -657,138 +446,64 @@ const PROFILE_FIELDS = [
     "currentAddressEvidence.livePhotoDocumentReference",
   ],
 
-  [
-    "liveness_provider",
-    "currentAddressEvidence.livenessProvider",
-  ],
+  ["liveness_provider", "currentAddressEvidence.livenessProvider"],
 
-  [
-    "liveness_reference",
-    "currentAddressEvidence.livenessReference",
-  ],
+  ["liveness_reference", "currentAddressEvidence.livenessReference"],
 
-  [
-    "liveness_status",
-    "currentAddressEvidence.livenessStatus",
-  ],
+  ["liveness_status", "currentAddressEvidence.livenessStatus"],
 
-  [
-    "liveness_score",
-    "currentAddressEvidence.livenessScore",
-  ],
+  ["liveness_score", "currentAddressEvidence.livenessScore"],
 
-  [
-    "evidence_reference",
-    "currentAddressEvidence.evidenceReference",
-  ],
+  ["evidence_reference", "currentAddressEvidence.evidenceReference"],
 
-  [
-    "evidence_latitude",
-    "currentAddressEvidence.latitude",
-  ],
+  ["evidence_latitude", "currentAddressEvidence.latitude"],
 
-  [
-    "evidence_longitude",
-    "currentAddressEvidence.longitude",
-  ],
+  ["evidence_longitude", "currentAddressEvidence.longitude"],
 
-  [
-    "evidence_captured_at",
-    "currentAddressEvidence.capturedAt",
-  ],
+  ["evidence_captured_at", "currentAddressEvidence.capturedAt"],
 
-  [
-    "evidence_verified_at",
-    "currentAddressEvidence.verifiedAt",
-  ],
-
+  ["evidence_verified_at", "currentAddressEvidence.verifiedAt"],
 
   /*
   | Selected Offer
   */
-  [
-    "selected_offer_amount",
-    "selectedOffer.amount",
-  ],
+  ["selected_offer_amount", "selectedOffer.amount"],
 
-  [
-    "selected_offer_tenure",
-    "selectedOffer.tenure",
-  ],
+  ["selected_offer_tenure", "selectedOffer.tenure"],
 
-  [
-    "selected_offer_selected_at",
-    "selectedOffer.selectedAt",
-  ],
-
+  ["selected_offer_selected_at", "selectedOffer.selectedAt"],
 
   /*
   | Bank Details
   */
-  [
-    "bank_account_holder_name",
-    "bankDetails.accountHolderName",
-  ],
+  ["bank_account_holder_name", "bankDetails.accountHolderName"],
 
-  [
-    "bank_account_number",
-    "bankDetails.accountNumber",
-  ],
+  ["bank_account_number", "bankDetails.accountNumber"],
 
-  [
-    "bank_ifsc_code",
-    "bankDetails.ifscCode",
-  ],
+  ["bank_ifsc_code", "bankDetails.ifscCode"],
 
-  [
-    "bank_name",
-    "bankDetails.bankName",
-  ],
+  ["bank_name", "bankDetails.bankName"],
 
-  [
-    "bank_account_type",
-    "bankDetails.accountType",
-  ],
+  ["bank_account_type", "bankDetails.accountType"],
 
-  [
-    "bank_verified_at",
-    "bankDetails.verifiedAt",
-  ],
-
+  ["bank_verified_at", "bankDetails.verifiedAt"],
 
   /*
   | Mandate
   */
-  [
-    "mandate_umrn",
-    "mandate.umrn",
-  ],
+  ["mandate_umrn", "mandate.umrn"],
 
-  [
-    "mandate_provider",
-    "mandate.provider",
-  ],
+  ["mandate_provider", "mandate.provider"],
 
-  [
-    "mandate_type",
-    "mandate.mandateType",
-  ],
+  ["mandate_type", "mandate.mandateType"],
 
-  [
-    "mandate_authorized_at",
-    "mandate.authorizedAt",
-  ],
+  ["mandate_authorized_at", "mandate.authorizedAt"],
 ];
-
 
 function buildMergedProfile(app, body) {
   const merged = {};
 
-  for (
-    const [column, path]
-    of PROFILE_FIELDS
-  ) {
-
+  for (const [column, path] of PROFILE_FIELDS) {
     const incomingValue = getValue(body, path);
 
     console.log(
@@ -802,16 +517,11 @@ function buildMergedProfile(app, body) {
       app[column],
     );
 
-    merged[column] =
-      keepExisting(
-        getValue(body, path),
-        app[column],
-      );
+    merged[column] = keepExisting(getValue(body, path), app[column]);
   }
 
   return merged;
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -825,73 +535,52 @@ function buildMergedProfile(app, body) {
 | pl_partner_application_detail_versions
 |
 */
-async function updateProfile(
-  partnerApplicationId,
-  body,
-) {
-  const connection =
-    await db.getConnection();
+async function updateProfile(partnerApplicationId, body) {
+  const connection = await db.getConnection();
 
   try {
-
     await connection.beginTransaction();
 
-    const [appRows] =
-      await connection.query(
-        `SELECT *
+    const [appRows] = await connection.query(
+      `SELECT *
          FROM pl_partner_applications
          WHERE partner_application_id = ?
          LIMIT 1
          FOR UPDATE`,
-        [partnerApplicationId],
-      );
+      [partnerApplicationId],
+    );
 
-    const app =
-      appRows[0];
+    const app = appRows[0];
 
     if (!app) {
       await connection.rollback();
       return null;
     }
 
+    const detailsVersion = Number(body.detailsVersion);
 
-    const detailsVersion =
-      Number(body.detailsVersion);
-
-    const requestHash =
-      makeHash(body);
-
+    const requestHash = makeHash(body);
 
     /*
     |--------------------------------------------------------------------------
     | CHECK EXISTING VERSION
     |--------------------------------------------------------------------------
     */
-    const [existingVersions] =
-      await connection.query(
-        `SELECT
+    const [existingVersions] = await connection.query(
+      `SELECT
            request_hash,
            accepted_at
          FROM pl_partner_application_detail_versions
          WHERE application_id = ?
            AND details_version = ?
          LIMIT 1`,
-        [
-          app.id,
-          detailsVersion,
-        ],
-      );
-
+      [app.id, detailsVersion],
+    );
 
     if (existingVersions.length) {
+      const existing = existingVersions[0];
 
-      const existing =
-        existingVersions[0];
-
-      if (
-        existing.request_hash !==
-        requestHash
-      ) {
+      if (existing.request_hash !== requestHash) {
         throw apiError(
           409,
           "DETAILS_VERSION_CONFLICT",
@@ -903,16 +592,11 @@ async function updateProfile(
       return {
         detailsVersion,
 
-        status:
-          "DETAILS_ACCEPTED",
+        status: "DETAILS_ACCEPTED",
 
-        updatedAt:
-          new Date(
-            existing.accepted_at,
-          ).toISOString(),
+        updatedAt: new Date(existing.accepted_at).toISOString(),
       };
     }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -920,19 +604,11 @@ async function updateProfile(
     |--------------------------------------------------------------------------
     */
 
-    const currentVersion =
-      Number(
-        app.latest_details_version || 0,
-      );
+    const currentVersion = Number(app.latest_details_version || 0);
 
-    const expectedVersion =
-      currentVersion + 1;
+    const expectedVersion = currentVersion + 1;
 
-
-    if (
-      detailsVersion !==
-      expectedVersion
-    ) {
+    if (detailsVersion !== expectedVersion) {
       throw apiError(
         409,
         "INVALID_DETAILS_VERSION",
@@ -940,18 +616,13 @@ async function updateProfile(
       );
     }
 
-
     /*
     |--------------------------------------------------------------------------
     | MERGE INCOMING + EXISTING DATA
     |--------------------------------------------------------------------------
     */
 
-    const merged =
-      buildMergedProfile(
-        app,
-        body,
-      );
+    const merged = buildMergedProfile(app, body);
     console.log("REQUEST MANDATE:", JSON.stringify(body.mandate));
 
     const test = {
@@ -975,22 +646,16 @@ async function updateProfile(
     const detailSnapshot = {
       ...merged,
 
-      customer_pan_number:
-        merged.pan_number,
+      customer_pan_number: merged.pan_number,
 
-      customer_date_of_birth:
-        merged.date_of_birth,
+      customer_date_of_birth: merged.date_of_birth,
 
-      customer_gender:
-        merged.gender,
+      customer_gender: merged.gender,
 
-      customer_mobile_number:
-        merged.mobile_number,
+      customer_mobile_number: merged.mobile_number,
 
-      customer_email:
-        merged.email,
+      customer_email: merged.email,
     };
-
 
     delete detailSnapshot.pan_number;
     delete detailSnapshot.date_of_birth;
@@ -998,13 +663,9 @@ async function updateProfile(
     delete detailSnapshot.mobile_number;
     delete detailSnapshot.email;
 
+    const detailColumns = Object.keys(detailSnapshot);
 
-    const detailColumns =
-      Object.keys(detailSnapshot);
-
-    const detailValues =
-      Object.values(detailSnapshot);
-
+    const detailValues = Object.values(detailSnapshot);
 
     await connection.query(
       `INSERT INTO pl_partner_application_detail_versions
@@ -1013,12 +674,7 @@ async function updateProfile(
         details_version,
         request_hash,
 
-        ${detailColumns
-        .map(
-          (column) =>
-            `\`${column}\``,
-        )
-        .join(", ")},
+        ${detailColumns.map((column) => `\`${column}\``).join(", ")},
 
         details_json,
         accepted_at,
@@ -1028,9 +684,7 @@ async function updateProfile(
       (
         ?, ?, ?,
 
-        ${detailColumns
-        .map(() => "?")
-        .join(", ")},
+        ${detailColumns.map(() => "?").join(", ")},
 
         ?,
         NOW(3),
@@ -1047,30 +701,21 @@ async function updateProfile(
       ],
     );
 
-
     /*
     |--------------------------------------------------------------------------
     | UPDATE MAIN APPLICATION
     |--------------------------------------------------------------------------
     */
 
-    const mainColumns =
-      Object.keys(merged);
+    const mainColumns = Object.keys(merged);
 
-    const mainValues =
-      Object.values(merged);
-
+    const mainValues = Object.values(merged);
 
     await connection.query(
       `UPDATE pl_partner_applications
        SET
 
-         ${mainColumns
-        .map(
-          (column) =>
-            `\`${column}\` = ?`,
-        )
-        .join(", ")},
+         ${mainColumns.map((column) => `\`${column}\` = ?`).join(", ")},
 
          latest_details_version = ?,
 
@@ -1089,39 +734,26 @@ async function updateProfile(
          updated_at = NOW(3)
 
        WHERE id = ?`,
-      [
-        ...mainValues,
-        detailsVersion,
-        app.id,
-      ],
+      [...mainValues, detailsVersion, app.id],
     );
 
-
     await connection.commit();
-
 
     return {
       detailsVersion,
 
-      status:
-        "DETAILS_ACCEPTED",
+      status: "DETAILS_ACCEPTED",
 
-      updatedAt:
-        new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
-
   } catch (error) {
-
     await connection.rollback();
 
     throw error;
-
   } finally {
-
     connection.release();
   }
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -1131,23 +763,14 @@ async function updateProfile(
 | I am keeping your existing document table logic.
 |
 */
-async function saveDocument(
-  partnerApplicationId,
-  body,
-) {
-  const app =
-    await getApplication(
-      partnerApplicationId,
-    );
+async function saveDocument(partnerApplicationId, body) {
+  const app = await getApplication(partnerApplicationId);
 
   if (!app) {
     return null;
   }
 
-
-  const partnerDocumentId =
-    crypto.randomUUID();
-
+  const partnerDocumentId = crypto.randomUUID();
 
   /*
   |--------------------------------------------------------------------------
@@ -1162,10 +785,7 @@ async function saveDocument(
   let fileBuffer;
 
   try {
-    fileBuffer = Buffer.from(
-      String(body.contentBase64 || ""),
-      "base64",
-    );
+    fileBuffer = Buffer.from(String(body.contentBase64 || ""), "base64");
   } catch {
     fileBuffer = null;
   }
@@ -1183,9 +803,7 @@ async function saveDocument(
     .update(fileBuffer)
     .digest("hex");
 
-  const claimedSha256 = String(
-    body.fileSha256 || "",
-  ).toLowerCase();
+  const claimedSha256 = String(body.fileSha256 || "").toLowerCase();
 
   if (computedSha256 !== claimedSha256) {
     throw apiError(
@@ -1195,32 +813,22 @@ async function saveDocument(
     );
   }
 
-
   /*
   |--------------------------------------------------------------------------
   | WRITE TO DISK
   |--------------------------------------------------------------------------
   */
 
-  const storedFileName =
-    buildPartnerDocumentFileName(
-      partnerDocumentId,
-      body.fileName,
-    );
-
-  const filePath = path.join(
-    PARTNER_DOCUMENTS_DIR,
-    storedFileName,
+  const storedFileName = buildPartnerDocumentFileName(
+    partnerDocumentId,
+    body.fileName,
   );
 
-  await fs.promises.writeFile(
-    filePath,
-    fileBuffer,
-  );
+  const filePath = path.join(PARTNER_DOCUMENTS_DIR, storedFileName);
 
-  const relativeFilePath =
-    `/uploads/partner-documents/${storedFileName}`;
+  await fs.promises.writeFile(filePath, fileBuffer);
 
+  const relativeFilePath = `/uploads/partner-documents/${storedFileName}`;
 
   /*
   |--------------------------------------------------------------------------
@@ -1287,13 +895,10 @@ async function saveDocument(
       ],
     );
   } catch (error) {
-    await fs.promises
-      .unlink(filePath)
-      .catch(() => {});
+    await fs.promises.unlink(filePath).catch(() => {});
 
     throw error;
   }
-
 
   /*
   | Optional status update
@@ -1314,40 +919,26 @@ async function saveDocument(
     [app.id],
   );
 
-
   return {
-    documentType:
-      body.documentType,
+    documentType: body.documentType,
 
-    fileSha256:
-      computedSha256,
+    fileSha256: computedSha256,
 
-    status:
-      "RECEIVED",
+    status: "RECEIVED",
 
     partnerDocumentId,
 
-    receivedAt:
-      new Date().toISOString(),
+    receivedAt: new Date().toISOString(),
   };
 }
-
 
 /*
 |--------------------------------------------------------------------------
 | BRE RESPONSE HELPER
 |--------------------------------------------------------------------------
 */
-function buildBreResponse(
-  result,
-  version,
-  app,
-) {
-  const decision =
-    String(
-      result?.decision || "",
-    ).toUpperCase();
-
+function buildBreResponse(result, version, app) {
+  const decision = String(result?.decision || "").toUpperCase();
 
   if (decision === "REJECTED") {
     return {
@@ -1355,13 +946,11 @@ function buildBreResponse(
     };
   }
 
-
   if (decision !== "APPROVED") {
     return {
       status: "pending",
     };
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -1370,11 +959,7 @@ function buildBreResponse(
   | Pre approval credit limit
   */
 
-  let approvedAmount =
-    Number(
-      result.creditLimit || 0,
-    );
-
+  let approvedAmount = Number(result.creditLimit || 0);
 
   /*
   |--------------------------------------------------------------------------
@@ -1392,14 +977,13 @@ function buildBreResponse(
      * Reporting the gross amount here (as this used to) told the partner
      * a number that could never pass that check.
      */
-    approvedAmount =
-      Number(
-        app.bre_approved_loan_amount ||
+    approvedAmount = Number(
+      app.bre_approved_loan_amount ||
         result.grossApprovedLoanAmount ||
         app.selected_offer_amount ||
         result.creditLimit ||
         0,
-      );
+    );
 
     /*
      * bre_final_status can only read "APPROVED" here if some other process
@@ -1407,10 +991,7 @@ function buildBreResponse(
      * (and every fallback) empty, silently returning an "approved" response
      * with a ₹0 limit would be worse than surfacing the data problem.
      */
-    if (
-      !Number.isFinite(approvedAmount) ||
-      approvedAmount <= 0
-    ) {
+    if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
       throw apiError(
         409,
         "FINAL_APPROVED_AMOUNT_MISSING",
@@ -1419,31 +1000,24 @@ function buildBreResponse(
     }
   }
 
-
-  const isNewCustomer =
-    result.newCustomer !== false;
-
+  const isNewCustomer = result.newCustomer !== false;
 
   return {
     status: "approved",
 
     CREDIT_LIMIT_CHECK_RPM: {
       derived_values: {
+        LIMIT_ASSIGNMENT_IS_NEW_CUSTOMER_RPM: isNewCustomer
+          ? approvedAmount
+          : 0,
 
-        LIMIT_ASSIGNMENT_IS_NEW_CUSTOMER_RPM:
-          isNewCustomer
-            ? approvedAmount
-            : 0,
-
-        LIMIT_ASSIGNMENT_IS_REPEAT_CUSTOMER_RPM:
-          isNewCustomer
-            ? 0
-            : approvedAmount,
+        LIMIT_ASSIGNMENT_IS_REPEAT_CUSTOMER_RPM: isNewCustomer
+          ? 0
+          : approvedAmount,
       },
     },
   };
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -1468,43 +1042,21 @@ function buildBreResponse(
 | bre_final_reason
 |
 */
-async function requestDecision(
-  partnerApplicationId,
-  body,
-  version,
-) {
-  const app =
-    await getApplication(
-      partnerApplicationId,
-    );
+async function requestDecision(partnerApplicationId, body, version) {
+  const app = await getApplication(partnerApplicationId);
 
   if (!app) {
     return null;
   }
 
+  const phase = version === 1 ? "PRE_APPROVAL" : "FINAL_APPROVAL";
 
-  const phase =
-    version === 1
-      ? "PRE_APPROVAL"
-      : "FINAL_APPROVAL";
+  const result = await runPlPartnerBre(app, {
+    phase,
+  });
 
-
-  const result =
-    await runPlPartnerBre(
-      app,
-      {
-        phase,
-      },
-    );
-
-
-  return buildBreResponse(
-    result,
-    version,
-    app,
-  );
+  return buildBreResponse(result, version, app);
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -1522,8 +1074,7 @@ async function recordPlPartnerDisbursement({
   disbursementUtr,
   disbursementDate,
 }) {
-  const connection =
-    await db.getConnection();
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -1542,18 +1093,14 @@ async function recordPlPartnerDisbursement({
       [lan],
     );
 
-    const [existing] =
-      await connection.query(
-        `SELECT id
+    const [existing] = await connection.query(
+      `SELECT id
          FROM ev_disbursement_utr
          WHERE lan = ?
             OR Disbursement_UTR = ?
          LIMIT 1`,
-        [
-          lan,
-          disbursementUtr,
-        ],
-      );
+      [lan, disbursementUtr],
+    );
 
     if (!existing.length) {
       await connection.query(
@@ -1565,20 +1112,11 @@ async function recordPlPartnerDisbursement({
            utr
          )
          VALUES (?, ?, ?, ?)`,
-        [
-          disbursementUtr,
-          disbursementDate,
-          lan,
-          disbursementUtr,
-        ],
+        [disbursementUtr, disbursementDate, lan, disbursementUtr],
       );
     }
 
-    const rps =
-      await generatePlPartnerRps(
-        lan,
-        connection,
-      );
+    const rps = await generatePlPartnerRps(lan, connection);
 
     /*
      * generatePlPartnerRps returns no dueDate when the schedule already
@@ -1588,20 +1126,17 @@ async function recordPlPartnerDisbursement({
     let dueDate = rps.dueDate || null;
 
     if (!dueDate) {
-      const [rows] =
-        await connection.query(
-          `SELECT due_date
+      const [rows] = await connection.query(
+        `SELECT due_date
            FROM manual_rps_fintree_personal_loan
            WHERE lan = ?
            ORDER BY due_date ASC
            LIMIT 1`,
-          [lan],
-        );
+        [lan],
+      );
 
       dueDate = rows[0]?.due_date
-        ? new Date(rows[0].due_date)
-            .toISOString()
-            .split("T")[0]
+        ? new Date(rows[0].due_date).toISOString().split("T")[0]
         : null;
     }
 
@@ -1632,20 +1167,13 @@ async function sendPlPartnerDisbursalWebhook({
   firstRepaymentDate,
   eventId,
 }) {
-  const baseUrl = String(
-    process.env.PLP_BASE_URL || "",
-  )
+  const baseUrl = String(process.env.PLP_BASE_URL || "")
     .trim()
     .replace(/\/+$/, "");
 
   const webhookUrl =
-    String(
-      process.env
-        .PLP_DISBURSAL_WEBHOOK_URL || "",
-    ).trim() ||
-    (baseUrl
-      ? `${baseUrl}/api/webhooks/lenders/FFPL2026/disbursal`
-      : "");
+    String(process.env.PLP_DISBURSAL_WEBHOOK_URL || "").trim() ||
+    (baseUrl ? `${baseUrl}/api/webhooks/lenders/FFPL2026/disbursal` : "");
 
   if (!webhookUrl) {
     throw new Error(
@@ -1654,8 +1182,7 @@ async function sendPlPartnerDisbursalWebhook({
   }
 
   const webhookSecret = String(
-    process.env
-      .PLP_DISBURSAL_WEBHOOK_SECRET || "",
+    process.env.PLP_DISBURSAL_WEBHOOK_SECRET || "",
   ).trim();
 
   await axios.post(
@@ -1679,8 +1206,7 @@ async function sendPlPartnerDisbursalWebhook({
 
         ...(webhookSecret
           ? {
-              "x-pl-webhook-secret":
-                webhookSecret,
+              "x-pl-webhook-secret": webhookSecret,
             }
           : {}),
       },
@@ -1688,40 +1214,26 @@ async function sendPlPartnerDisbursalWebhook({
     },
   );
 
-  console.log(
-    "[PL PARTNER] Disbursal webhook sent",
-    {
-      lan,
-      webhookUrl,
-      eventId,
-    },
-  );
+  console.log("[PL PARTNER] Disbursal webhook sent", {
+    lan,
+    webhookUrl,
+    eventId,
+  });
 }
 
-async function triggerEasebuzzPayout({
-  app,
-  amount,
-  uniqueRequestNumber,
-}) {
-  const beneficiaryName = String(
-    app.bank_account_holder_name || "",
-  )
+async function triggerEasebuzzPayout({ app, amount, uniqueRequestNumber }) {
+  const beneficiaryName = String(app.bank_account_holder_name || "")
     .trim()
     .replace(/\s+/g, " ")
     .toUpperCase();
 
-  const accountNumber = String(
-    app.bank_account_number || "",
-  ).trim();
+  const accountNumber = String(app.bank_account_number || "").trim();
 
-  const ifsc = String(
-    app.bank_ifsc_code || "",
-  )
+  const ifsc = String(app.bank_ifsc_code || "")
     .trim()
     .toUpperCase();
 
-  const isTestMode =
-    process.env.ENABLE_REAL_PAYOUT !== "true";
+  const isTestMode = process.env.ENABLE_REAL_PAYOUT !== "true";
 
   if (isTestMode) {
     const now = Date.now();
@@ -1735,11 +1247,9 @@ async function triggerEasebuzzPayout({
             id: `TEST_${now}`,
             status: "initiated",
             transfer_date: new Date().toISOString(),
-            unique_transaction_reference:
-              `TESTUTR${now}`,
+            unique_transaction_reference: `TESTUTR${now}`,
             queue_on_low_balance: 0,
-            unique_request_number:
-              uniqueRequestNumber,
+            unique_request_number: uniqueRequestNumber,
           },
         },
       },
@@ -1756,10 +1266,7 @@ async function triggerEasebuzzPayout({
     process.env.EASEBUZZ_SALT,
   ].join("|");
 
-  const authorization = crypto
-    .createHash("sha512")
-    .update(raw)
-    .digest("hex");
+  const authorization = crypto.createHash("sha512").update(raw).digest("hex");
 
   const response = await axios.post(
     "https://wire.easebuzz.in/api/v1/quick_transfers/initiate/",
@@ -1770,16 +1277,14 @@ async function triggerEasebuzzPayout({
       account_number: accountNumber,
       ifsc,
       upi_handle: "",
-      unique_request_number:
-        uniqueRequestNumber,
+      unique_request_number: uniqueRequestNumber,
       payment_mode: "IMPS",
       amount,
     },
     {
       headers: {
         Authorization: authorization,
-        "WIRE-API-KEY":
-          process.env.EASEBUZZ_WIRE_API_KEY,
+        "WIRE-API-KEY": process.env.EASEBUZZ_WIRE_API_KEY,
         "Content-Type": "application/json",
       },
       timeout: 15000,
@@ -1810,13 +1315,8 @@ async function triggerEasebuzzPayout({
 | Actual success comes from webhook.
 |
 */
-async function requestDisbursal(
-  partnerApplicationId,
-  body,
-) {
-  const app = await getApplication(
-    partnerApplicationId,
-  );
+async function requestDisbursal(partnerApplicationId, body) {
+  const app = await getApplication(partnerApplicationId);
 
   if (!app) {
     return null;
@@ -1828,11 +1328,7 @@ async function requestDisbursal(
   |--------------------------------------------------------------------------
   */
 
-  if (
-    String(
-      app.bre_final_status || "",
-    ).toUpperCase() !== "APPROVED"
-  ) {
+  if (String(app.bre_final_status || "").toUpperCase() !== "APPROVED") {
     throw apiError(
       409,
       "FINAL_APPROVAL_REQUIRED",
@@ -1848,15 +1344,8 @@ async function requestDisbursal(
 
   const amount = Number(body.amount);
 
-  if (
-    !Number.isFinite(amount) ||
-    amount <= 0
-  ) {
-    throw apiError(
-      400,
-      "INVALID_DISBURSAL_AMOUNT",
-      "Invalid disbursal amount",
-    );
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw apiError(400, "INVALID_DISBURSAL_AMOUNT", "Invalid disbursal amount");
   }
 
   /*
@@ -1865,13 +1354,9 @@ async function requestDisbursal(
 |--------------------------------------------------------------------------
 */
 
-  const approvedAmount =
-    Number(app.bre_approved_loan_amount);
+  const approvedAmount = Number(app.bre_approved_loan_amount);
 
-  if (
-    !Number.isFinite(approvedAmount) ||
-    approvedAmount <= 0
-  ) {
+  if (!Number.isFinite(approvedAmount) || approvedAmount <= 0) {
     throw apiError(
       409,
       "APPROVED_AMOUNT_MISSING",
@@ -1879,10 +1364,7 @@ async function requestDisbursal(
     );
   }
 
-  if (
-    Math.round(amount * 100) !==
-    Math.round(approvedAmount * 100)
-  ) {
+  if (Math.round(amount * 100) !== Math.round(approvedAmount * 100)) {
     throw apiError(
       409,
       "DISBURSAL_AMOUNT_MISMATCH",
@@ -1890,7 +1372,7 @@ async function requestDisbursal(
     );
   }
 
-/*
+  /*
 |--------------------------------------------------------------------------
 | MAX PAYOUT CAP
 |--------------------------------------------------------------------------
@@ -1901,13 +1383,13 @@ async function requestDisbursal(
 |
 */
 
-if (amount > POLICY.MAX_LOAN_AMOUNT) {
-  throw apiError(
-    409,
-    "MAX_PAYOUT_LIMIT_EXCEEDED",
-    `Disbursal amount exceeds the maximum permitted payout of ${POLICY.MAX_LOAN_AMOUNT}`,
-  );
-}
+  if (amount > POLICY.MAX_LOAN_AMOUNT) {
+    throw apiError(
+      409,
+      "MAX_PAYOUT_LIMIT_EXCEEDED",
+      `Disbursal amount exceeds the maximum permitted payout of ${POLICY.MAX_LOAN_AMOUNT}`,
+    );
+  }
 
   /*
   |--------------------------------------------------------------------------
@@ -1916,11 +1398,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
   */
 
   if (!app.lan) {
-    throw apiError(
-      400,
-      "LAN_REQUIRED",
-      "LAN is required before disbursal",
-    );
+    throw apiError(400, "LAN_REQUIRED", "LAN is required before disbursal");
   }
 
   if (
@@ -1951,11 +1429,9 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
   | external HTTP request.
   */
 
-  const uniqueRequestNumber =
-    `FTPL_${app.id}_${Date.now()}`;
+  const uniqueRequestNumber = `FTPL_${app.id}_${Date.now()}`;
 
-  const lockConnection =
-    await db.getConnection();
+  const lockConnection = await db.getConnection();
 
   try {
     await lockConnection.beginTransaction();
@@ -1970,9 +1446,8 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       [app.id],
     );
 
-    const [existingRows] =
-      await lockConnection.query(
-        `
+    const [existingRows] = await lockConnection.query(
+      `
           SELECT
             id,
             unique_request_number,
@@ -1983,25 +1458,20 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
           ORDER BY id DESC
           LIMIT 1
         `,
-        [app.partner_application_id],
-      );
+      [app.partner_application_id],
+    );
 
-    const existingTransfer =
-      existingRows[0] || null;
+    const existingTransfer = existingRows[0] || null;
 
     if (existingTransfer) {
-      const status = String(
-        existingTransfer.status || "",
-      ).toUpperCase();
+      const status = String(existingTransfer.status || "").toUpperCase();
 
       const payoutStatus = String(
         existingTransfer.payout_status || "",
       ).toLowerCase();
 
       if (
-        ["INITIATED", "SUCCESS"].includes(
-          status,
-        ) ||
+        ["INITIATED", "SUCCESS"].includes(status) ||
         [
           "requested",
           "initiated",
@@ -2059,15 +1529,13 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     |--------------------------------------------------------------------------
     */
 
-    const easebuzzResult =
-      await triggerEasebuzzPayout({
-        app,
-        amount,
-        uniqueRequestNumber,
-      });
+    const easebuzzResult = await triggerEasebuzzPayout({
+      app,
+      amount,
+      uniqueRequestNumber,
+    });
 
-    const easebuzzResponse =
-      easebuzzResult.response;
+    const easebuzzResponse = easebuzzResult.response;
 
     /*
     |--------------------------------------------------------------------------
@@ -2075,12 +1543,9 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     |--------------------------------------------------------------------------
     */
 
-    if (
-      easebuzzResponse?.success === false
-    ) {
+    if (easebuzzResponse?.success === false) {
       const failureReason =
-        easebuzzResponse.message ||
-        "EASEBUZZ_PAYOUT_FAILED";
+        easebuzzResponse.message || "EASEBUZZ_PAYOUT_FAILED";
 
       await query(
         `
@@ -2093,20 +1558,10 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
             updated_at = NOW()
           WHERE unique_request_number = ?
         `,
-        [
-          failureReason,
-          JSON.stringify(
-            easebuzzResponse,
-          ),
-          uniqueRequestNumber,
-        ],
+        [failureReason, JSON.stringify(easebuzzResponse), uniqueRequestNumber],
       );
 
-      throw apiError(
-        502,
-        "EASEBUZZ_PAYOUT_FAILED",
-        failureReason,
-      );
+      throw apiError(502, "EASEBUZZ_PAYOUT_FAILED", failureReason);
     }
 
     /*
@@ -2115,9 +1570,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     |--------------------------------------------------------------------------
     */
 
-    const transfer =
-      easebuzzResponse?.data
-        ?.transfer_request;
+    const transfer = easebuzzResponse?.data?.transfer_request;
 
     if (!transfer) {
       await query(
@@ -2133,9 +1586,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
         `,
         [
           "INVALID_EASEBUZZ_RESPONSE",
-          JSON.stringify(
-            easebuzzResponse,
-          ),
+          JSON.stringify(easebuzzResponse),
           uniqueRequestNumber,
         ],
       );
@@ -2147,9 +1598,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       );
     }
 
-    const providerStatus = String(
-      transfer.status || "initiated",
-    ).toLowerCase();
+    const providerStatus = String(transfer.status || "initiated").toLowerCase();
 
     /*
     |--------------------------------------------------------------------------
@@ -2178,52 +1627,37 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
         transfer.queue_on_low_balance ?? 0,
 
         transfer.transfer_date
-          ? String(
-            transfer.transfer_date,
-          ).split("T")[0]
+          ? String(transfer.transfer_date).split("T")[0]
           : null,
 
-        transfer
-          .unique_transaction_reference ||
-        null,
+        transfer.unique_transaction_reference || null,
 
-        JSON.stringify(
-          easebuzzResponse,
-        ),
+        JSON.stringify(easebuzzResponse),
 
         uniqueRequestNumber,
       ],
     );
 
-    const utr =
-      transfer
-        .unique_transaction_reference ||
-      null;
+    const utr = transfer.unique_transaction_reference || null;
 
-    const transferDate =
-      transfer.transfer_date
-        ? String(
-            transfer.transfer_date,
-          ).split("T")[0]
-        : null;
+    const transferDate = transfer.transfer_date
+      ? String(transfer.transfer_date).split("T")[0]
+      : null;
 
     const baseResponse = {
       status: "REQUESTED",
 
-      disbursalReference:
-        uniqueRequestNumber,
+      disbursalReference: uniqueRequestNumber,
 
       provider: "EASEBUZZ",
 
       providerStatus,
 
-      transferId:
-        transfer.id || null,
+      transferId: transfer.id || null,
 
       utr,
 
-      testMode:
-        easebuzzResult.testMode,
+      testMode: easebuzzResult.testMode,
     };
 
     /*
@@ -2238,9 +1672,7 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     */
 
     if (
-      !FINAL_PAYOUT_STATUSES.includes(
-        providerStatus,
-      ) ||
+      !FINAL_PAYOUT_STATUSES.includes(providerStatus) ||
       !utr ||
       !transferDate
     ) {
@@ -2269,12 +1701,11 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
     let rps = null;
 
     try {
-      rps =
-        await recordPlPartnerDisbursement({
-          lan: app.lan,
-          disbursementUtr: utr,
-          disbursementDate: transferDate,
-        });
+      rps = await recordPlPartnerDisbursement({
+        lan: app.lan,
+        disbursementUtr: utr,
+        disbursementDate: transferDate,
+      });
     } catch (disbursementError) {
       console.error(
         "[PL PARTNER] Disbursement recording failed after a successful payout",
@@ -2302,20 +1733,15 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
         utr,
         disbursementDate: transferDate,
         amount,
-        firstRepaymentDate:
-          rps?.dueDate || null,
-        eventId:
-          `evt-${uniqueRequestNumber}`,
+        firstRepaymentDate: rps?.dueDate || null,
+        eventId: `evt-${uniqueRequestNumber}`,
       });
     } catch (webhookError) {
-      console.error(
-        "[PL PARTNER] Disbursal webhook failed (non-blocking)",
-        {
-          lan: app.lan,
-          uniqueRequestNumber,
-          error: webhookError.message,
-        },
-      );
+      console.error("[PL PARTNER] Disbursal webhook failed (non-blocking)", {
+        lan: app.lan,
+        uniqueRequestNumber,
+        error: webhookError.message,
+      });
     }
 
     return {
@@ -2336,13 +1762,10 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       throw error;
     }
 
-    const responseData =
-      error.response?.data || null;
+    const responseData = error.response?.data || null;
 
     const failureReason =
-      responseData?.message ||
-      error.message ||
-      "EASEBUZZ_PAYOUT_FAILED";
+      responseData?.message || error.message || "EASEBUZZ_PAYOUT_FAILED";
 
     await query(
       `
@@ -2368,14 +1791,9 @@ if (amount > POLICY.MAX_LOAN_AMOUNT) {
       ],
     );
 
-    throw apiError(
-      502,
-      "EASEBUZZ_PAYOUT_FAILED",
-      failureReason,
-    );
+    throw apiError(502, "EASEBUZZ_PAYOUT_FAILED", failureReason);
   }
 }
-
 
 /*
 |--------------------------------------------------------------------------
@@ -2395,7 +1813,6 @@ async function executeIdempotent({
   operation,
   successStatus = 200,
 }) {
-
   if (!idempotencyKey) {
     throw apiError(
       400,
@@ -2404,31 +1821,20 @@ async function executeIdempotent({
     );
   }
 
+  const clientId = getClientId();
 
-  const clientId =
-    getClientId();
+  const requestHash = makeHash(payload);
 
-  const requestHash =
-    makeHash(payload);
-
-
-  const [rows] =
-    await query(
-      `SELECT *
+  const [rows] = await query(
+    `SELECT *
        FROM pl_partner_idempotency_records
        WHERE client_id = ?
          AND idempotency_key = ?
        LIMIT 1`,
-      [
-        clientId,
-        idempotencyKey,
-      ],
-    );
+    [clientId, idempotencyKey],
+  );
 
-
-  const existing =
-    rows[0];
-
+  const existing = rows[0];
 
   /*
   |--------------------------------------------------------------------------
@@ -2436,14 +1842,10 @@ async function executeIdempotent({
   |--------------------------------------------------------------------------
   */
   if (existing) {
-
     /*
     | Same key but different payload
     */
-    if (
-      existing.request_hash !==
-      requestHash
-    ) {
+    if (existing.request_hash !== requestHash) {
       throw apiError(
         409,
         "IDEMPOTENCY_CONFLICT",
@@ -2451,28 +1853,18 @@ async function executeIdempotent({
       );
     }
 
-
     /*
     | Already completed
     */
-    if (
-      existing.processing_status ===
-      "COMPLETED"
-    ) {
+    if (existing.processing_status === "COMPLETED") {
       return {
-        statusCode:
-          existing.response_status ||
-          successStatus,
+        statusCode: existing.response_status || successStatus,
 
-        data:
-          existing.response_body
-            ? JSON.parse(
-              existing.response_body,
-            )
-            : null,
+        data: existing.response_body
+          ? JSON.parse(existing.response_body)
+          : null,
       };
     }
-
 
     /*
     | Allow failed request to retry
@@ -2487,9 +1879,7 @@ async function executeIdempotent({
        WHERE id = ?`,
       [existing.id],
     );
-
   } else {
-
     /*
     |--------------------------------------------------------------------------
     | FIRST REQUEST
@@ -2515,22 +1905,12 @@ async function executeIdempotent({
         NOW(3),
         NOW(3)
       )`,
-      [
-        clientId,
-        idempotencyKey,
-        method,
-        endpoint,
-        requestHash,
-      ],
+      [clientId, idempotencyKey, method, endpoint, requestHash],
     );
   }
 
-
   try {
-
-    const data =
-      await operation();
-
+    const data = await operation();
 
     await query(
       `UPDATE pl_partner_idempotency_records
@@ -2543,25 +1923,15 @@ async function executeIdempotent({
 
        WHERE client_id = ?
          AND idempotency_key = ?`,
-      [
-        successStatus,
-        JSON.stringify(data),
-
-        clientId,
-        idempotencyKey,
-      ],
+      [successStatus, JSON.stringify(data), clientId, idempotencyKey],
     );
 
-
     return {
-      statusCode:
-        successStatus,
+      statusCode: successStatus,
 
       data,
     };
-
   } catch (error) {
-
     await query(
       `UPDATE pl_partner_idempotency_records
        SET
@@ -2579,19 +1949,15 @@ async function executeIdempotent({
         error.statusCode || 500,
 
         JSON.stringify({
-          code:
-            error.code ||
-            "SERVER_ERROR",
+          code: error.code || "SERVER_ERROR",
 
-          message:
-            error.message,
+          message: error.message,
         }),
 
         clientId,
         idempotencyKey,
       ],
     );
-
 
     throw error;
   }
@@ -2603,19 +1969,10 @@ async function executeIdempotent({
 |--------------------------------------------------------------------------
 */
 
-async function addExtraCharge(
-  partnerApplicationId,
-  payload
-) {
-  const application =
-    await getApplication(
-      partnerApplicationId
-    );
+async function addExtraCharge(partnerApplicationId, payload) {
+  const application = await getApplication(partnerApplicationId);
 
-  assertApplicationIdentity(
-    application,
-    payload
-  );
+  assertApplicationIdentity(application, payload);
 
   const lan = application.lan;
 
@@ -2643,7 +2000,7 @@ async function addExtraCharge(
       payload.amount,
       payload.chargeType,
       payload.remarks || null,
-    ]
+    ],
   );
 
   return {
@@ -2657,31 +2014,20 @@ async function addExtraCharge(
 |--------------------------------------------------------------------------
 */
 
-async function waiveExtraCharge(
-  partnerApplicationId,
-  payload
-) {
-  const connection =
-    await db.getConnection();
+async function waiveExtraCharge(partnerApplicationId, payload) {
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    const application =
-      await getApplication(
-        partnerApplicationId
-      );
+    const application = await getApplication(partnerApplicationId);
 
-    assertApplicationIdentity(
-      application,
-      payload
-    );
+    assertApplicationIdentity(application, payload);
 
     const lan = application.lan;
 
-    const [rows] =
-      await connection.query(
-        `SELECT
+    const [rows] = await connection.query(
+      `SELECT
            id,
            amount,
            paid_amount,
@@ -2697,11 +2043,8 @@ async function waiveExtraCharge(
          ORDER BY due_date ASC, id ASC
          LIMIT 1
          FOR UPDATE`,
-        [
-          lan,
-          payload.chargeType,
-        ]
-      );
+      [lan, payload.chargeType],
+    );
 
     const charge = rows[0];
 
@@ -2709,7 +2052,7 @@ async function waiveExtraCharge(
       throw apiError(
         404,
         "CHARGE_NOT_FOUND",
-        "Charge not found or already settled"
+        "Charge not found or already settled",
       );
     }
 
@@ -2718,28 +2061,21 @@ async function waiveExtraCharge(
       Number(charge.paid_amount || 0) -
       Number(charge.waived_amount || 0);
 
-    const waiverAmount =
-      Number(payload.waiverAmount);
+    const waiverAmount = Number(payload.waiverAmount);
 
     if (waiverAmount > outstanding) {
       throw apiError(
         400,
         "VALIDATION_ERROR",
-        "waiverAmount exceeds the outstanding charge amount"
+        "waiverAmount exceeds the outstanding charge amount",
       );
     }
 
-    const newWaivedAmount =
-      Number(charge.waived_amount || 0) +
-      waiverAmount;
+    const newWaivedAmount = Number(charge.waived_amount || 0) + waiverAmount;
 
-    const remaining =
-      outstanding - waiverAmount;
+    const remaining = outstanding - waiverAmount;
 
-    const status =
-      remaining <= 0
-        ? "Waived"
-        : "Partially Waived";
+    const status = remaining <= 0 ? "Waived" : "Partially Waived";
 
     await connection.query(
       `UPDATE loan_charges
@@ -2747,11 +2083,7 @@ async function waiveExtraCharge(
          waived_amount = ?,
          paid_status = ?
        WHERE id = ?`,
-      [
-        newWaivedAmount,
-        status,
-        charge.id,
-      ]
+      [newWaivedAmount, status, charge.id],
     );
 
     await connection.commit();
@@ -2759,11 +2091,9 @@ async function waiveExtraCharge(
     return {
       status: "CHARGE_WAIVED",
     };
-
   } catch (error) {
     await connection.rollback();
     throw error;
-
   } finally {
     connection.release();
   }
@@ -2787,49 +2117,30 @@ const validateRepaymentPayload = (input) => {
       "amount must be a valid positive number.",
       {
         field: "amount",
-      }
+      },
     );
   }
 
   const paymentId = requiredString(body.paymentId, "paymentId", 100);
 
   return {
-    externalApplicationReference:
-      requiredString(
-        body.externalApplicationReference,
-        "externalApplicationReference",
-        100
-      ),
-
-    lan: requiredString(
-      body.lan,
-      "lan",
-      50
+    externalApplicationReference: requiredString(
+      body.externalApplicationReference,
+      "externalApplicationReference",
+      100,
     ),
+
+    lan: requiredString(body.lan, "lan", 50),
 
     amount,
 
-    paymentDate:
-      requireDate(
-        body.paymentDate,
-        "paymentDate"
-      ),
+    paymentDate: requireDate(body.paymentDate, "paymentDate"),
 
     paymentId,
 
-    paymentMode:
-      optionalString(
-        body.paymentMode,
-        "paymentMode",
-        50
-      ) || "API",
+    paymentMode: optionalString(body.paymentMode, "paymentMode", 50) || "API",
 
-    utr:
-      optionalString(
-        body.utr,
-        "utr",
-        100
-      ) || paymentId,
+    utr: optionalString(body.utr, "utr", 100) || paymentId,
   };
 };
 
@@ -2851,45 +2162,26 @@ const validateExtraChargePayload = (input) => {
       "amount must be a valid positive number.",
       {
         field: "amount",
-      }
+      },
     );
   }
 
   return {
-    externalApplicationReference:
-      requiredString(
-        body.externalApplicationReference,
-        "externalApplicationReference",
-        100
-      ),
-
-    lan: requiredString(
-      body.lan,
-      "lan",
-      50
+    externalApplicationReference: requiredString(
+      body.externalApplicationReference,
+      "externalApplicationReference",
+      100,
     ),
 
-    chargeType:
-      requiredString(
-        body.chargeType,
-        "chargeType",
-        100
-      ),
+    lan: requiredString(body.lan, "lan", 50),
+
+    chargeType: requiredString(body.chargeType, "chargeType", 100),
 
     amount,
 
-    dueDate:
-      requireDate(
-        body.dueDate,
-        "dueDate"
-      ),
+    dueDate: requireDate(body.dueDate, "dueDate"),
 
-    remarks:
-      optionalString(
-        body.remarks,
-        "remarks",
-        255
-      ),
+    remarks: optionalString(body.remarks, "remarks", 255),
   };
 };
 
@@ -2904,37 +2196,30 @@ const validateWaiverPayload = (input) => {
 
   const waiverAmount = requiredString(body.waiverAmount, "waiverAmount", 30);
 
-  if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(waiverAmount) || Number(waiverAmount) <= 0) {
+  if (
+    !/^[0-9]+(\.[0-9]{1,2})?$/.test(waiverAmount) ||
+    Number(waiverAmount) <= 0
+  ) {
     throw apiError(
       400,
       "VALIDATION_ERROR",
       "waiverAmount must be a valid positive number.",
       {
         field: "waiverAmount",
-      }
+      },
     );
   }
 
   return {
-    externalApplicationReference:
-      requiredString(
-        body.externalApplicationReference,
-        "externalApplicationReference",
-        100
-      ),
-
-    lan: requiredString(
-      body.lan,
-      "lan",
-      50
+    externalApplicationReference: requiredString(
+      body.externalApplicationReference,
+      "externalApplicationReference",
+      100,
     ),
 
-    chargeType:
-      requiredString(
-        body.chargeType,
-        "chargeType",
-        100
-      ),
+    lan: requiredString(body.lan, "lan", 50),
+
+    chargeType: requiredString(body.chargeType, "chargeType", 100),
 
     waiverAmount,
   };
@@ -2950,32 +2235,21 @@ const validateDisbursementUtrPayload = (input) => {
   const body = requireObject(input, "body");
 
   return {
-    externalApplicationReference:
-      requiredString(
-        body.externalApplicationReference,
-        "externalApplicationReference",
-        100
-      ),
+    externalApplicationReference: requiredString(
+      body.externalApplicationReference,
+      "externalApplicationReference",
+      100,
+    ),
 
-    lan:
-      requiredString(
-        body.lan,
-        "lan",
-        50
-      ),
+    lan: requiredString(body.lan, "lan", 50),
 
-    disbursementUtr:
-      requiredString(
-        body.disbursementUtr,
-        "disbursementUtr",
-        50
-      ),
+    disbursementUtr: requiredString(
+      body.disbursementUtr,
+      "disbursementUtr",
+      50,
+    ),
 
-    disbursementDate:
-      requireDate(
-        body.disbursementDate,
-        "disbursementDate"
-      ),
+    disbursementDate: requireDate(body.disbursementDate, "disbursementDate"),
   };
 };
 
@@ -2985,12 +2259,8 @@ const validateDisbursementUtrPayload = (input) => {
 |--------------------------------------------------------------------------
 */
 
-async function recordDisbursementUtr(
-  partnerApplicationId,
-  payload
-) {
-  const connection =
-    await db.getConnection();
+async function recordDisbursementUtr(partnerApplicationId, payload) {
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -3008,36 +2278,26 @@ async function recordDisbursementUtr(
       [partnerApplicationId],
     );
 
-    const application =
-      await getApplication(
-        partnerApplicationId
-      );
+    const application = await getApplication(partnerApplicationId);
 
-    assertApplicationIdentity(
-      application,
-      payload
-    );
+    assertApplicationIdentity(application, payload);
 
     const lan = application.lan;
 
-    const [existing] =
-      await connection.query(
-        `SELECT id
+    const [existing] = await connection.query(
+      `SELECT id
          FROM ev_disbursement_utr
          WHERE lan = ?
             OR Disbursement_UTR = ?
          LIMIT 1`,
-        [
-          lan,
-          payload.disbursementUtr,
-        ]
-      );
+      [lan, payload.disbursementUtr],
+    );
 
     if (existing.length) {
       throw apiError(
         409,
         "DISBURSEMENT_ALREADY_RECORDED",
-        "Disbursement UTR already exists"
+        "Disbursement UTR already exists",
       );
     }
 
@@ -3049,36 +2309,23 @@ async function recordDisbursementUtr(
          lan
        )
        VALUES (?, ?, ?)`,
-      [
-        payload.disbursementUtr,
-        payload.disbursementDate,
-        lan,
-      ]
+      [payload.disbursementUtr, payload.disbursementDate, lan],
     );
 
-    const rps =
-      await generatePlPartnerRps(
-        lan,
-        connection
-      );
+    const rps = await generatePlPartnerRps(lan, connection);
 
     await connection.commit();
 
     return {
-      status:
-        "DISBURSEMENT_RECORDED",
+      status: "DISBURSEMENT_RECORDED",
       lan,
-      disbursementUtr:
-        payload.disbursementUtr,
-      disbursementDate:
-        payload.disbursementDate,
+      disbursementUtr: payload.disbursementUtr,
+      disbursementDate: payload.disbursementDate,
       rps,
     };
-
   } catch (error) {
     await connection.rollback();
     throw error;
-
   } finally {
     connection.release();
   }
@@ -3091,7 +2338,6 @@ async function recordDisbursementUtr(
 */
 
 async function generatePlPartnerRps(lan, connection) {
-
   /*
   |--------------------------------------------------------------------------
   | GET LOAN + DISBURSEMENT DETAILS
@@ -3118,7 +2364,7 @@ async function generatePlPartnerRps(lan, connection) {
       ON d.lan = p.lan
    WHERE p.lan = ?
    LIMIT 1`,
-    [lan]
+    [lan],
   );
 
   const loan = rows[0];
@@ -3127,7 +2373,7 @@ async function generatePlPartnerRps(lan, connection) {
     throw apiError(
       404,
       "DISBURSEMENT_NOT_FOUND",
-      "Loan or disbursement details not found"
+      "Loan or disbursement details not found",
     );
   }
 
@@ -3149,7 +2395,7 @@ async function generatePlPartnerRps(lan, connection) {
     throw apiError(
       409,
       "APPROVED_AMOUNT_MISSING",
-      "bre_gross_approved_amount is not set for this loan"
+      "bre_gross_approved_amount is not set for this loan",
     );
   }
 
@@ -3161,10 +2407,9 @@ async function generatePlPartnerRps(lan, connection) {
     throw apiError(
       409,
       "SELECTED_TENURE_MISSING",
-      "selected_offer_tenure is not set for this loan"
+      "selected_offer_tenure is not set for this loan",
     );
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -3172,17 +2417,13 @@ async function generatePlPartnerRps(lan, connection) {
   |--------------------------------------------------------------------------
   */
 
-  if (
-    String(loan.tenure_type || "")
-      .toUpperCase() !== "DAYS"
-  ) {
+  if (String(loan.tenure_type || "").toUpperCase() !== "DAYS") {
     throw apiError(
       400,
       "INVALID_TENURE_TYPE",
-      "Only DAYS tenure is supported for bullet RPS"
+      "Only DAYS tenure is supported for bullet RPS",
     );
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -3195,7 +2436,7 @@ async function generatePlPartnerRps(lan, connection) {
      FROM manual_rps_fintree_personal_loan
      WHERE lan = ?
      LIMIT 1`,
-    [lan]
+    [lan],
   );
 
   if (existing.length) {
@@ -3204,34 +2445,25 @@ async function generatePlPartnerRps(lan, connection) {
     };
   }
 
-
   /*
   |--------------------------------------------------------------------------
   | VALUES
   |--------------------------------------------------------------------------
   */
 
-  const amount =
-    Number(loan.bre_gross_approved_amount);
+  const amount = Number(loan.bre_gross_approved_amount);
 
-  const tenure =
-    Number(loan.selected_offer_tenure);
+  const tenure = Number(loan.selected_offer_tenure);
 
-  const roi =
-    Number(loan.interest_rate);
+  const roi = Number(loan.interest_rate);
 
-  if (
-    amount <= 0 ||
-    tenure <= 0 ||
-    roi < 0
-  ) {
+  if (amount <= 0 || tenure <= 0 || roi < 0) {
     throw apiError(
       400,
       "INVALID_RPS_DATA",
-      "Invalid amount, tenure or interest rate"
+      "Invalid amount, tenure or interest rate",
     );
   }
-
 
   /*
   |--------------------------------------------------------------------------
@@ -3242,21 +2474,11 @@ async function generatePlPartnerRps(lan, connection) {
   |
   */
 
-  const interest =
-    Math.ceil(
-      amount *
-      (roi / 100) *
-      (tenure / 365)
-    );
+  const interest = Math.ceil(amount * (roi / 100) * (tenure / 365));
 
   const principal = amount;
 
-  const emi =
-    Number(
-      (principal + interest)
-        .toFixed(2)
-    );
-
+  const emi = Number((principal + interest).toFixed(2));
 
   /*
   |--------------------------------------------------------------------------
@@ -3326,7 +2548,7 @@ async function generatePlPartnerRps(lan, connection) {
       principal,
 
       emi,
-    ]
+    ],
   );
 
   return {
@@ -3339,24 +2561,15 @@ async function generatePlPartnerRps(lan, connection) {
   };
 }
 
-async function allocatePlPartner(
-  lan,
-  payment,
-  connection
-) {
-  let remaining =
-    Number(payment.transfer_amount);
+async function allocatePlPartner(lan, payment, connection) {
+  let remaining = Number(payment.transfer_amount);
 
-  const paymentDate =
-    payment.payment_date;
+  const paymentDate = payment.payment_date;
 
-  const paymentId =
-    payment.payment_id;
+  const paymentId = payment.payment_id;
 
   if (!paymentId) {
-    throw new Error(
-      "payment_id is required"
-    );
+    throw new Error("payment_id is required");
   }
 
   /*
@@ -3366,9 +2579,8 @@ async function allocatePlPartner(
   */
 
   while (remaining > 0) {
-    const [emiRows] =
-      await connection.query(
-        `SELECT *
+    const [emiRows] = await connection.query(
+      `SELECT *
      FROM manual_rps_fintree_personal_loan
      WHERE lan = ?
        AND (
@@ -3378,8 +2590,8 @@ async function allocatePlPartner(
      ORDER BY due_date ASC
      LIMIT 1
      FOR UPDATE`,
-        [lan]
-      );
+      [lan],
+    );
 
     const emi = emiRows[0];
 
@@ -3387,29 +2599,16 @@ async function allocatePlPartner(
       break;
     }
 
-    let interestDue =
-      Number(
-        emi.remaining_interest || 0
-      );
+    let interestDue = Number(emi.remaining_interest || 0);
 
-    let principalDue =
-      Number(
-        emi.remaining_principal || 0
-      );
+    let principalDue = Number(emi.remaining_principal || 0);
 
     /*
     | Interest first
     */
 
-    if (
-      remaining > 0 &&
-      interestDue > 0
-    ) {
-      const amount =
-        Math.min(
-          remaining,
-          interestDue
-        );
+    if (remaining > 0 && interestDue > 0) {
+      const amount = Math.min(remaining, interestDue);
 
       remaining -= amount;
       interestDue -= amount;
@@ -3425,13 +2624,7 @@ async function allocatePlPartner(
            payment_id
          )
          VALUES (?, ?, ?, ?, 'Interest', ?)`,
-        [
-          lan,
-          emi.due_date,
-          paymentDate,
-          amount,
-          paymentId,
-        ]
+        [lan, emi.due_date, paymentDate, amount, paymentId],
       );
     }
 
@@ -3439,16 +2632,8 @@ async function allocatePlPartner(
     | Principal second
     */
 
-    if (
-      remaining > 0 &&
-      interestDue <= 0 &&
-      principalDue > 0
-    ) {
-      const amount =
-        Math.min(
-          remaining,
-          principalDue
-        );
+    if (remaining > 0 && interestDue <= 0 && principalDue > 0) {
+      const amount = Math.min(remaining, principalDue);
 
       remaining -= amount;
       principalDue -= amount;
@@ -3464,24 +2649,13 @@ async function allocatePlPartner(
            payment_id
          )
          VALUES (?, ?, ?, ?, 'Principal', ?)`,
-        [
-          lan,
-          emi.due_date,
-          paymentDate,
-          amount,
-          paymentId,
-        ]
+        [lan, emi.due_date, paymentDate, amount, paymentId],
       );
     }
 
-    const remainingEmi =
-      interestDue +
-      principalDue;
+    const remainingEmi = interestDue + principalDue;
 
-    const status =
-      remainingEmi <= 0
-        ? "Paid"
-        : "Partially Paid";
+    const status = remainingEmi <= 0 ? "Paid" : "Partially Paid";
 
     await connection.query(
       `UPDATE manual_rps_fintree_personal_loan
@@ -3501,7 +2675,7 @@ async function allocatePlPartner(
         paymentDate,
         status,
         emi.id,
-      ]
+      ],
     );
 
     if (remainingEmi > 0) {
@@ -3516,9 +2690,8 @@ async function allocatePlPartner(
   */
 
   while (remaining > 0) {
-    const [chargeRows] =
-      await connection.query(
-        `SELECT *
+    const [chargeRows] = await connection.query(
+      `SELECT *
      FROM loan_charges
      WHERE lan = ?
        AND (
@@ -3529,8 +2702,8 @@ async function allocatePlPartner(
      ORDER BY due_date ASC, id ASC
      LIMIT 1
      FOR UPDATE`,
-        [lan]
-      );
+      [lan],
+    );
 
     const charge = chargeRows[0];
 
@@ -3543,26 +2716,15 @@ async function allocatePlPartner(
       Number(charge.paid_amount || 0) -
       Number(charge.waived_amount || 0);
 
-    const amount =
-      Math.min(
-        remaining,
-        outstanding
-      );
+    const amount = Math.min(remaining, outstanding);
 
     remaining -= amount;
 
-    const newPaidAmount =
-      Number(
-        charge.paid_amount || 0
-      ) + amount;
+    const newPaidAmount = Number(charge.paid_amount || 0) + amount;
 
-    const newOutstanding =
-      outstanding - amount;
+    const newOutstanding = outstanding - amount;
 
-    const status =
-      newOutstanding <= 0
-        ? "Paid"
-        : "Partially Paid";
+    const status = newOutstanding <= 0 ? "Paid" : "Partially Paid";
 
     await connection.query(
       `INSERT INTO allocation
@@ -3582,7 +2744,7 @@ async function allocatePlPartner(
         amount,
         charge.charge_type,
         paymentId,
-      ]
+      ],
     );
 
     await connection.query(
@@ -3592,12 +2754,7 @@ async function allocatePlPartner(
          paid_status = ?,
          payment_time = ?
        WHERE id = ?`,
-      [
-        newPaidAmount,
-        status,
-        paymentDate,
-        charge.id,
-      ]
+      [newPaidAmount, status, paymentDate, charge.id],
     );
   }
 
@@ -3620,14 +2777,7 @@ async function allocatePlPartner(
          excess_amount
        )
        VALUES (?, ?, ?, ?, 'Excess Payment', ?, ?)`,
-      [
-        lan,
-        paymentDate,
-        paymentDate,
-        remaining,
-        paymentId,
-        remaining,
-      ]
+      [lan, paymentDate, paymentDate, remaining, paymentId, remaining],
     );
   }
 
@@ -3736,43 +2886,28 @@ async function allocatePlPartner(
 //   };
 // }
 
-async function recordRepayment(
-  partnerApplicationId,
-  payload
-) {
-  const connection =
-    await db.getConnection();
+async function recordRepayment(partnerApplicationId, payload) {
+  const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    const application =
-      await getApplication(
-        partnerApplicationId
-      );
+    const application = await getApplication(partnerApplicationId);
 
-    assertApplicationIdentity(
-      application,
-      payload
-    );
+    assertApplicationIdentity(application, payload);
 
     const lan = application.lan;
 
-    const [duplicate] =
-      await connection.query(
-        `SELECT id
+    const [duplicate] = await connection.query(
+      `SELECT id
          FROM repayments_upload
          WHERE utr = ?
          LIMIT 1`,
-        [payload.utr]
-      );
+      [payload.utr],
+    );
 
     if (duplicate.length) {
-      throw apiError(
-        409,
-        "DUPLICATE_UTR",
-        "Repayment UTR already exists"
-      );
+      throw apiError(409, "DUPLICATE_UTR", "Repayment UTR already exists");
     }
 
     await connection.query(
@@ -3795,20 +2930,17 @@ async function recordRepayment(
         payload.paymentId,
         payload.paymentMode,
         payload.amount,
-      ]
+      ],
     );
 
     await allocatePlPartner(
       lan,
       {
-        transfer_amount:
-          Number(payload.amount),
-        payment_date:
-          payload.paymentDate,
-        payment_id:
-          payload.paymentId,
+        transfer_amount: Number(payload.amount),
+        payment_date: payload.paymentDate,
+        payment_id: payload.paymentId,
       },
-      connection
+      connection,
     );
 
     await connection.commit();
@@ -3816,11 +2948,9 @@ async function recordRepayment(
     return {
       status: "REPAYMENT_RECORDED",
     };
-
   } catch (error) {
     await connection.rollback();
     throw error;
-
   } finally {
     connection.release();
   }
@@ -3839,7 +2969,6 @@ async function getAllPersonalLoans({
   sortBy = "created_at",
   sortDir = "desc",
 } = {}) {
-
   /*
   |--------------------------------------------------------------------------
   | PAGINATION
@@ -3859,9 +2988,7 @@ async function getAllPersonalLoans({
 
   pageSize = Math.min(pageSize, 100);
 
-  const offset =
-    (page - 1) * pageSize;
-
+  const offset = (page - 1) * pageSize;
 
   /*
   |--------------------------------------------------------------------------
@@ -3882,15 +3009,9 @@ async function getAllPersonalLoans({
     bre_status: "pa.bre_status",
   };
 
-  const sortColumn =
-    SORT_COLUMNS[sortBy] ||
-    SORT_COLUMNS.created_at;
+  const sortColumn = SORT_COLUMNS[sortBy] || SORT_COLUMNS.created_at;
 
-  const direction =
-    String(sortDir).toLowerCase() === "asc"
-      ? "ASC"
-      : "DESC";
-
+  const direction = String(sortDir).toLowerCase() === "asc" ? "ASC" : "DESC";
 
   /*
   |--------------------------------------------------------------------------
@@ -3902,16 +3023,12 @@ async function getAllPersonalLoans({
     WHERE pa.product_code = ?
   `;
 
-  const filterParams = [
-    "FFPL10011",
-  ];
+  const filterParams = ["FFPL10011"];
 
-  const cleanSearch =
-    String(search || "").trim();
+  const cleanSearch = String(search || "").trim();
 
   if (cleanSearch) {
-    const likeSearch =
-      `%${cleanSearch}%`;
+    const likeSearch = `%${cleanSearch}%`;
 
     whereSql += `
       AND (
@@ -3936,7 +3053,6 @@ async function getAllPersonalLoans({
     );
   }
 
-
   /*
   |--------------------------------------------------------------------------
   | TOTAL COUNT
@@ -3955,16 +3071,9 @@ async function getAllPersonalLoans({
     ${whereSql}
   `;
 
-  const [countRows] = await db.query(
-      countSql,
-      filterParams
-    );
+  const [countRows] = await db.query(countSql, filterParams);
 
-  const total =
-    Number(
-      countRows[0]?.total || 0
-    );
-
+  const total = Number(countRows[0]?.total || 0);
 
   /*
   |--------------------------------------------------------------------------
@@ -4024,16 +3133,7 @@ async function getAllPersonalLoans({
     OFFSET ?
   `;
 
-  const [rows] =
-    await db.query(
-      loansSql,
-      [
-        ...filterParams,
-        pageSize,
-        offset,
-      ]
-    );
-
+  const [rows] = await db.query(loansSql, [...filterParams, pageSize, offset]);
 
   /*
   |--------------------------------------------------------------------------
@@ -4041,86 +3141,59 @@ async function getAllPersonalLoans({
   |--------------------------------------------------------------------------
   */
 
-  const loans =
-    rows.map((row) => ({
-      id: row.id,
+  const loans = rows.map((row) => ({
+    id: row.id,
 
-      lan:
-        row.lan,
+    lan: row.lan,
 
-      partner_loan_id:
-        row.partner_application_id,
+    partner_loan_id: row.partner_application_id,
 
-      partner_application_number:
-        row.partner_application_number,
+    partner_application_number: row.partner_application_number,
 
-      external_application_reference:
-        row.external_application_reference,
+    external_application_reference: row.external_application_reference,
 
-      product:
-        "Personal Loan",
+    product: "Personal Loan",
 
-      customer_name:
-        row.customer_full_name,
+    customer_name: row.customer_full_name,
 
-      mobile:
-        row.mobile_number,
+    mobile: row.mobile_number,
 
-      email:
-        row.email,
+    email: row.email,
 
-      loan_amount:
-        row.requested_amount,
+    loan_amount: row.requested_amount,
 
-      disbursal_amount:
-        row.bre_approved_loan_amount,
+    disbursal_amount: row.bre_approved_loan_amount,
 
-      disbursement_date:
-        row.disbursement_date,
+    disbursement_date: row.disbursement_date,
 
-      tenure:
-        row.requested_tenure,
+    tenure: row.requested_tenure,
 
-      tenure_type:
-        row.tenure_type,
+    tenure_type: row.tenure_type,
 
-      interest_rate:
-        row.interest_rate,
+    interest_rate: row.interest_rate,
 
-      processing_fee:
-        row.processing_fee,
+    processing_fee: row.processing_fee,
 
-      status:
-        row.status,
+    status: row.status,
 
-      employment_type:
-        row.employment_employment_type,
+    employment_type: row.employment_employment_type,
 
-      company_name:
-        row.employment_company_name,
+    company_name: row.employment_company_name,
 
-      monthly_income:
-        row.employment_monthly_income,
+    monthly_income: row.employment_monthly_income,
 
-      bre_status:
-        row.bre_status,
+    bre_status: row.bre_status,
 
-      bre_reason:
-        row.bre_reason,
+    bre_reason: row.bre_reason,
 
-      bre_approved_loan_amount:
-        row.bre_approved_loan_amount,
+    bre_approved_loan_amount: row.bre_approved_loan_amount,
 
-      bre_final_status:
-        row.bre_final_status,
+    bre_final_status: row.bre_final_status,
 
-      created_at:
-        row.created_at,
+    created_at: row.created_at,
 
-      updated_at:
-        row.updated_at,
-    }));
-
+    updated_at: row.updated_at,
+  }));
 
   return {
     rows: loans,
@@ -4130,16 +3203,12 @@ async function getAllPersonalLoans({
       pageSize,
       total,
 
-      totalPages:
-        Math.ceil(
-          total / pageSize
-        ),
+      totalPages: Math.ceil(total / pageSize),
     },
   };
 }
 
 async function getPersonalLoanByLan(lan) {
-
   const sql = `
     SELECT
       pa.*,
@@ -4153,10 +3222,7 @@ async function getPersonalLoanByLan(lan) {
     LIMIT 1
   `;
 
-  const rows = await queryDB(
-    sql,
-    [lan]
-  );
+  const rows = await queryDB(sql, [lan]);
 
   return rows[0] || null;
 }
@@ -4199,29 +3265,16 @@ async function getDisbursementByLan(lan) {
 
  `;
 
-
-  const rows =
-    await queryDB(
-      sql,
-      [lan]
-    );
-
+  const rows = await queryDB(sql, [lan]);
 
   if (!rows.length) {
-
-    throw new Error(
-      "Disbursement details not found"
-    );
-
+    throw new Error("Disbursement details not found");
   }
 
-
   return rows[0];
-
 }
 
 async function getPersonalLoanSchedule(lan) {
-
   const sql = `
 SELECT
 id,
@@ -4246,28 +3299,16 @@ WHERE lan = ?
 ORDER BY due_date ASC
 `;
 
-  const rows =
-    await queryDB(
-      sql,
-      [lan]
-    );
+  const rows = await queryDB(sql, [lan]);
 
   if (!rows.length) {
-
-    throw apiError(
-      404,
-      "SCHEDULE_NOT_FOUND",
-      "Repayment schedule not found"
-    );
-
+    throw apiError(404, "SCHEDULE_NOT_FOUND", "Repayment schedule not found");
   }
 
   return rows;
-
 }
 
 async function getExtraChargesByLan(lan) {
-
   const sql = `
 
 SELECT
@@ -4293,18 +3334,12 @@ ORDER BY created_at ASC
 
 `;
 
-
-  const rows = await queryDB(
-    sql,
-    [lan]
-  );
+  const rows = await queryDB(sql, [lan]);
 
   return rows;
-
 }
 
 async function getExtraChargesByLan(lan) {
-
   const sql = `
 SELECT
 id,
@@ -4330,16 +3365,9 @@ ORDER BY created_at ASC
 
 `;
 
-
-
-  const rows =
-    await queryDB(
-      sql,
-      [lan]
-    );
+  const rows = await queryDB(sql, [lan]);
 
   return rows;
-
 }
 
 async function getApprovedLoans({
@@ -4349,36 +3377,21 @@ async function getApprovedLoans({
   sortBy = "created_at",
   sortDir = "desc",
 }) {
+  const limit = Math.min(100, Math.max(1, Number(pageSize)));
 
-  const limit = Math.min(
-    100,
-    Math.max(1, Number(pageSize))
-  );
-
-  const offset =
-    (Number(page) - 1) * limit;
-
+  const offset = (Number(page) - 1) * limit;
 
   const allowedSort = [
     "created_at",
     "lan",
     "customer_full_name",
     "requested_amount",
-    "bre_approved_loan_amount"
+    "bre_approved_loan_amount",
   ];
 
+  const sortColumn = allowedSort.includes(sortBy) ? sortBy : "created_at";
 
-  const sortColumn =
-    allowedSort.includes(sortBy)
-      ? sortBy
-      : "created_at";
-
-
-  const direction =
-    sortDir.toLowerCase() === "asc"
-      ? "ASC"
-      : "DESC";
-
+  const direction = sortDir.toLowerCase() === "asc" ? "ASC" : "DESC";
 
   const searchCondition = search
     ? `
@@ -4390,15 +3403,9 @@ async function getApprovedLoans({
     `
     : "";
 
-
   const searchParams = search
-    ? [
-      `%${search}%`,
-      `%${search}%`,
-      `%${search}%`
-    ]
+    ? [`%${search}%`, `%${search}%`, `%${search}%`]
     : [];
-
 
   const dataQuery = `
     SELECT
@@ -4425,7 +3432,6 @@ async function getApprovedLoans({
     OFFSET ?
   `;
 
-
   const countQuery = `
     SELECT COUNT(*) AS total
 
@@ -4436,43 +3442,20 @@ async function getApprovedLoans({
     ${searchCondition}
   `;
 
+  const [rows] = await db.query(dataQuery, [...searchParams, limit, offset]);
 
-
-  const [rows] =
-    await db.query(
-      dataQuery,
-      [
-        ...searchParams,
-        limit,
-        offset
-      ]
-    );
-
-
-  const [[countResult]] =
-    await db.query(
-      countQuery,
-      searchParams
-    );
-
+  const [[countResult]] = await db.query(countQuery, searchParams);
 
   return {
-
     rows,
 
     pagination: {
       page: Number(page),
       pageSize: limit,
-      total: Number(
-        countResult.total || 0
-      ),
-      totalPages: Math.ceil(
-        countResult.total / limit
-      )
-    }
-
+      total: Number(countResult.total || 0),
+      totalPages: Math.ceil(countResult.total / limit),
+    },
   };
-
 }
 
 const getDisbursedLoans = async ({
@@ -4482,33 +3465,13 @@ const getDisbursedLoans = async ({
   sortBy = "created_at",
   sortDir = "desc",
 } = {}) => {
+  const pg = Math.max(1, parseInt(page, 10) || 1);
 
-  const pg =
-    Math.max(
-      1,
-      parseInt(page, 10) || 1
-    );
+  const limit = Math.min(100, Math.max(1, parseInt(pageSize, 10) || 25));
 
+  const offset = (pg - 1) * limit;
 
-  const limit =
-    Math.min(
-      100,
-      Math.max(
-        1,
-        parseInt(pageSize, 10) || 25
-      )
-    );
-
-
-  const offset =
-    (pg - 1) * limit;
-
-
-  const safeSortDir =
-    String(sortDir).toLowerCase() === "asc"
-      ? "ASC"
-      : "DESC";
-
+  const safeSortDir = String(sortDir).toLowerCase() === "asc" ? "ASC" : "DESC";
 
   const allowedSort = [
     "created_at",
@@ -4521,20 +3484,12 @@ const getDisbursedLoans = async ({
     "status",
   ];
 
+  const sortColumn = allowedSort.includes(sortBy) ? sortBy : "created_at";
 
-  const sortColumn =
-    allowedSort.includes(sortBy)
-      ? sortBy
-      : "created_at";
+  const cleanSearch = String(search || "").trim();
 
-
-  const cleanSearch =
-    String(search || "").trim();
-
-
-  const searchClause =
-    cleanSearch
-      ? `
+  const searchClause = cleanSearch
+    ? `
         AND (
           pa.lan LIKE ?
           OR pa.customer_full_name LIKE ?
@@ -4542,19 +3497,16 @@ const getDisbursedLoans = async ({
           OR pa.external_application_reference LIKE ?
         )
       `
-      : "";
+    : "";
 
-
-  const searchParams =
-    cleanSearch
-      ? [
+  const searchParams = cleanSearch
+    ? [
         `%${cleanSearch}%`,
         `%${cleanSearch}%`,
         `%${cleanSearch}%`,
         `%${cleanSearch}%`,
       ]
-      : [];
-
+    : [];
 
   const countSql = `
     SELECT
@@ -4566,7 +3518,6 @@ const getDisbursedLoans = async ({
 
     ${searchClause}
   `;
-
 
   const dataSql = `
     SELECT
@@ -4599,57 +3550,27 @@ const getDisbursedLoans = async ({
     LIMIT ? OFFSET ?
   `;
 
+  const [[countRows], [rows]] = await Promise.all([
+    db.query(countSql, searchParams),
 
-  const [
-    [countRows],
-    [rows],
-  ] = await Promise.all([
-
-    db.query(
-      countSql,
-      searchParams
-    ),
-
-    db.query(
-      dataSql,
-      [
-        ...searchParams,
-        limit,
-        offset,
-      ]
-    ),
-
+    db.query(dataSql, [...searchParams, limit, offset]),
   ]);
 
-
-  const total =
-    Number(
-      countRows[0]?.total || 0
-    );
-
+  const total = Number(countRows[0]?.total || 0);
 
   return {
-
     rows,
 
     pagination: {
-
       page: pg,
 
       pageSize: limit,
 
       total,
 
-      totalPages:
-        Math.max(
-          1,
-          Math.ceil(total / limit)
-        ),
-
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     },
-
   };
-
 };
 
 /*
@@ -4690,7 +3611,6 @@ async function getPortfolioSummary() {
     pipelineRows,
     caseRows,
   ] = await Promise.all([
-
     queryDB(
       `SELECT COUNT(*) AS cnt
        FROM pl_partner_applications
@@ -4800,10 +3720,7 @@ async function getPortfolioSummary() {
       key: bucket.key,
       label: bucket.label,
       count: rows.length,
-      amount: rows.reduce(
-        (sum, r) => sum + Number(r.remaining_amount || 0),
-        0,
-      ),
+      amount: rows.reduce((sum, r) => sum + Number(r.remaining_amount || 0), 0),
     };
   });
 
@@ -4812,9 +3729,7 @@ async function getPortfolioSummary() {
     .reduce((sum, b) => sum + b.count, 0);
 
   const portfolioAtRiskPct =
-    rpsRows.length > 0
-      ? Math.round((atRiskCount / rpsRows.length) * 100)
-      : 0;
+    rpsRows.length > 0 ? Math.round((atRiskCount / rpsRows.length) * 100) : 0;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -4859,9 +3774,7 @@ async function getPortfolioSummary() {
       disbursementDate: r.disbursement_date,
       dpd: r.dpd === null ? null : Number(r.dpd),
       remainingAmount:
-        r.remaining_amount === null
-          ? null
-          : Number(r.remaining_amount),
+        r.remaining_amount === null ? null : Number(r.remaining_amount),
       createdAt: r.created_at,
     })),
   };
@@ -4874,7 +3787,6 @@ async function getPortfolioSummary() {
 */
 
 async function getCustomerDetailsByLan(lan) {
-
   lan = String(lan || "")
     .trim()
     .toUpperCase();
@@ -4958,17 +3870,14 @@ async function getCustomerDetailsByLan(lan) {
 
     LIMIT 1
     `,
-    [lan]
+    [lan],
   );
-
 
   if (!rows.length) {
     return null;
   }
 
-
   const row = rows[0];
-
 
   // =====================================================
   // EXTRACT BUREAU / CIBIL SCORE
@@ -4977,247 +3886,157 @@ async function getCustomerDetailsByLan(lan) {
   let bureauScore = null;
 
   if (row.bureau_api_response) {
-
-    const bureauResponse =
-      String(row.bureau_api_response).trim();
-
+    const bureauResponse = String(row.bureau_api_response).trim();
 
     // ---------------------------------------------
     // 1. Dummy / JSON response
     // ---------------------------------------------
 
     try {
-
-      const parsed =
-        JSON.parse(bureauResponse);
+      const parsed = JSON.parse(bureauResponse);
 
       bureauScore =
-        parsed.score ??
-        parsed.cibilScore ??
-        parsed.bureauScore ??
-        null;
-
+        parsed.score ?? parsed.cibilScore ?? parsed.bureauScore ?? null;
     } catch (error) {
-
       // ---------------------------------------------
       // 2. Actual Experian XML response
       // ---------------------------------------------
 
-      const scoreMatch =
-        bureauResponse.match(
-          /<BureauScore>\s*(\d+)\s*<\/BureauScore>/i
-        );
+      const scoreMatch = bureauResponse.match(
+        /<BureauScore>\s*(\d+)\s*<\/BureauScore>/i,
+      );
 
       if (scoreMatch) {
-
-        bureauScore =
-          Number(scoreMatch[1]);
-
+        bureauScore = Number(scoreMatch[1]);
       }
-
     }
-
   }
-
 
   // =====================================================
   // RESPONSE
   // =====================================================
 
   return {
-
     applicant: {
+      lan: row.lan,
 
-      lan:
-        row.lan,
+      partnerApplicationId: row.partner_application_id,
 
-      partnerApplicationId:
-        row.partner_application_id,
+      partnerApplicationNumber: row.partner_application_number,
 
-      partnerApplicationNumber:
-        row.partner_application_number,
+      fullName: row.customer_full_name,
 
-      fullName:
-        row.customer_full_name,
+      firstName: row.customer_first_name,
 
-      firstName:
-        row.customer_first_name,
+      middleName: row.customer_middle_name,
 
-      middleName:
-        row.customer_middle_name,
+      lastName: row.customer_last_name,
 
-      lastName:
-        row.customer_last_name,
+      fatherName: row.customer_father_name,
 
-      fatherName:
-        row.customer_father_name,
+      pan: row.pan_number,
 
-      pan:
-        row.pan_number,
+      dob: row.date_of_birth,
 
-      dob:
-        row.date_of_birth,
+      gender: row.gender,
 
-      gender:
-        row.gender,
+      mobile: row.mobile_number,
 
-      mobile:
-        row.mobile_number,
-
-      email:
-        row.email
-
+      email: row.email,
     },
-
 
     employment: {
+      type: row.employment_employment_type,
 
-      type:
-        row.employment_employment_type,
+      company: row.employment_company_name,
 
-      company:
-        row.employment_company_name,
+      designation: row.employment_designation,
 
-      designation:
-        row.employment_designation,
-
-      monthlyIncome:
-        row.employment_monthly_income
-
+      monthlyIncome: row.employment_monthly_income,
     },
-
 
     loanFinancial: {
+      requestedAmount: row.requested_amount,
 
-      requestedAmount:
-        row.requested_amount,
+      requestedTenure: row.requested_tenure,
 
-      requestedTenure:
-        row.requested_tenure,
+      tenureType: row.tenure_type,
 
-      tenureType:
-        row.tenure_type,
+      interestRate: row.interest_rate,
 
-      interestRate:
-        row.interest_rate,
+      processingFee: row.processing_fee,
 
-      processingFee:
-        row.processing_fee,
+      selectedOfferAmount: row.selected_offer_amount,
 
-      selectedOfferAmount:
-        row.selected_offer_amount,
-
-      selectedOfferTenure:
-        row.selected_offer_tenure
-
+      selectedOfferTenure: row.selected_offer_tenure,
     },
-
 
     address: {
+      line1: row.perm_address_line1,
 
-      line1:
-        row.perm_address_line1,
+      line2: row.perm_address_line2,
 
-      line2:
-        row.perm_address_line2,
+      city: row.perm_city,
 
-      city:
-        row.perm_city,
+      district: row.perm_district,
 
-      district:
-        row.perm_district,
+      state: row.perm_state,
 
-      state:
-        row.perm_state,
-
-      pincode:
-        row.perm_pincode
-
+      pincode: row.perm_pincode,
     },
-
 
     bank: {
+      accountHolder: row.bank_account_holder_name,
 
-      accountHolder:
-        row.bank_account_holder_name,
+      accountNumber: row.bank_account_number,
 
-      accountNumber:
-        row.bank_account_number,
+      ifsc: row.bank_ifsc_code,
 
-      ifsc:
-        row.bank_ifsc_code,
+      bankName: row.bank_name,
 
-      bankName:
-        row.bank_name,
-
-      accountType:
-        row.bank_account_type
-
+      accountType: row.bank_account_type,
     },
-
 
     // =====================================================
     // BRE
     // =====================================================
 
     bre: {
+      policyVersion: row.bre_policy_version,
 
-      policyVersion:
-        row.bre_policy_version,
+      decisionStage: row.bre_decision_stage,
 
-      decisionStage:
-        row.bre_decision_stage,
+      status: row.bre_status,
 
-      status:
-        row.bre_status,
+      reason: row.bre_reason,
 
-      reason:
-        row.bre_reason,
+      creditLimit: row.bre_credit_limit,
 
-      creditLimit:
-        row.bre_credit_limit,
+      approvedAmount: row.bre_approved_loan_amount,
 
-      approvedAmount:
-        row.bre_approved_loan_amount,
+      grossApprovedAmount: row.bre_gross_approved_amount,
 
-      grossApprovedAmount:
-        row.bre_gross_approved_amount,
+      checkedAt: row.bre_checked_at,
 
-      checkedAt:
-        row.bre_checked_at,
+      finalStatus: row.bre_final_status,
 
-      finalStatus:
-        row.bre_final_status,
-
-      finalReason:
-        row.bre_final_reason
-
+      finalReason: row.bre_final_reason,
     },
-
 
     // =====================================================
     // BUREAU / CIBIL
     // =====================================================
 
     bureau: {
+      status: row.bureau_status,
 
-      status:
-        row.bureau_status,
+      score: bureauScore,
 
-      score:
-        bureauScore,
-
-      checkedAt:
-        row.bureau_checked_at
-
+      checkedAt: row.bureau_checked_at,
     },
 
-
-    loanStatus:
-      row.status
-
+    loanStatus: row.status,
   };
-
 }
 
 /*
@@ -5231,35 +4050,35 @@ async function getCustomerDetailsByLan(lan) {
 async function handlePartnerWebhook(payload = {}) {
   const lan = String(
     payload.lan ||
-    payload.LAN ||
-    payload.loan_account_number ||
-    payload.loanAccountNumber ||
-    ""
-  ).trim().toUpperCase();
+      payload.LAN ||
+      payload.loan_account_number ||
+      payload.loanAccountNumber ||
+      "",
+  )
+    .trim()
+    .toUpperCase();
 
   if (!lan) {
-    throw apiError(400, "INVALID_REQUEST", "lan is required in webhook payload");
+    throw apiError(
+      400,
+      "INVALID_REQUEST",
+      "lan is required in webhook payload",
+    );
   }
 
-  const incomingStatus = String(
-    payload.status ||
-    payload.Status ||
-    "REJECTED"
-  ).trim().toUpperCase();
+  const incomingStatus = String(payload.status || payload.Status || "REJECTED")
+    .trim()
+    .toUpperCase();
 
-  const stage = String(
-    payload.stage ||
-    payload.Stage ||
-    "LOS_REJECTED"
-  ).trim();
+  const stage = String(payload.stage || payload.Stage || "LOS_REJECTED").trim();
 
   const rejectReason = String(
     payload.reject_reason ||
-    payload.rejectReason ||
-    payload.rejection_reason ||
-    payload.reason ||
-    payload.message ||
-    "Loan application rejected by LOS"
+      payload.rejectReason ||
+      payload.rejection_reason ||
+      payload.reason ||
+      payload.message ||
+      "Loan application rejected by LOS",
   ).trim();
 
   const rawTimestamp = payload.timestamp || payload.Timestamp;
@@ -5272,21 +4091,21 @@ async function handlePartnerWebhook(payload = {}) {
        id,
        lan,
        status,
-       partner_application_id,
+       partner_application_id,        
        customer_full_name,
        bre_status,
        bre_final_status
      FROM pl_partner_applications
      WHERE lan = ?
      LIMIT 1`,
-    [lan]
+    [lan],
   );
 
   if (!apps.length) {
     throw apiError(
       404,
       "APPLICATION_NOT_FOUND",
-      `Loan application not found for LAN: ${lan}`
+      `Loan application not found for LAN: ${lan}`,
     );
   }
 
@@ -5294,12 +4113,15 @@ async function handlePartnerWebhook(payload = {}) {
 
   // Prevent overwriting terminal DISBURSED status
   if (application.status === "DISBURSED") {
-    console.warn(`[PARTNER WEBHOOK] Loan ${lan} is already DISBURSED; ignoring rejection event.`);
+    console.warn(
+      `[PARTNER WEBHOOK] Loan ${lan} is already DISBURSED; ignoring rejection event.`,
+    );
     return {
       lan,
       status: application.status,
       stage: application.stage || "DISBURSED",
-      message: "Application is already disbursed and cannot be marked as rejected",
+      message:
+        "Application is already disbursed and cannot be marked as rejected",
       ignored: true,
       timestamp: validEventTime.toISOString(),
     };
@@ -5329,7 +4151,7 @@ async function handlePartnerWebhook(payload = {}) {
       truncatedReason,
       truncatedReason,
       application.id,
-    ]
+    ],
   );
 
   console.log(`[PARTNER WEBHOOK] Application ${lan} marked as REJECTED`, {

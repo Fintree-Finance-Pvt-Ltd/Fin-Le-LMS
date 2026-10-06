@@ -201,16 +201,16 @@ function calculateNetDisbursalAmount({
   }
 
   /*
- * processingFeeRate passed to this function
- * must already be normalized to a 0-1 fraction.
- *
- * Example:
- * 2%  -> 0.02
- * 15% -> 0.15
- *
- * The caller is responsible for converting the
- * percentage stored in DB before calling this function.
- */
+   * processingFeeRate passed to this function
+   * must already be normalized to a 0-1 fraction.
+   *
+   * Example:
+   * 2%  -> 0.02
+   * 15% -> 0.15
+   *
+   * The caller is responsible for converting the
+   * percentage stored in DB before calling this function.
+   */
   if (!Number.isFinite(pfRate) || pfRate < 0 || pfRate > 1) {
     return {
       ok: false,

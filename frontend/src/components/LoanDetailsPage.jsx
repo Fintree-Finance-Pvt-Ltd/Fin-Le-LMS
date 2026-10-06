@@ -9,19 +9,15 @@ import ExtraCharges from "./ExtraCharges";
 import Documents from "./Documents";
 
 const LoanDetailsPage = () => {
-
   // CHANGED:
   // Get LAN from the URL.
   // Example: /loan-details/FTPL00000001
   const { lan } = useParams();
 
-  const [activeSection, setActiveSection] =
-    useState("loan-details");
+  const [activeSection, setActiveSection] = useState("loan-details");
 
   const renderContent = () => {
-
     switch (activeSection) {
-
       case "loan-details":
         return <LoanDetails />;
 
@@ -38,9 +34,7 @@ const LoanDetailsPage = () => {
         return <Documents lan={lan} />;
 
       default:
-
         return (
-
           <div
             className="
               bg-white
@@ -49,7 +43,6 @@ const LoanDetailsPage = () => {
               shadow
             "
           >
-
             <h2
               className="
                 text-xl
@@ -68,15 +61,12 @@ const LoanDetailsPage = () => {
             >
               Module will be added soon
             </p>
-
           </div>
-
         );
     }
   };
 
   return (
-
     <div
       className="
         flex
@@ -86,10 +76,7 @@ const LoanDetailsPage = () => {
         min-h-screen
       "
     >
-
-      <LoanSidebar
-        onSelect={setActiveSection}
-      />
+      <LoanSidebar onSelect={setActiveSection} />
 
       <div
         className="
@@ -98,9 +85,7 @@ const LoanDetailsPage = () => {
       >
         {renderContent()}
       </div>
-
     </div>
-
   );
 };
 

@@ -64,7 +64,9 @@ if (
   DEPLOYMENT_ENV === "production" &&
   (PLP_AML_MODE !== "live" || PLP_BUREAU_MODE !== "live")
 ) {
-  throw new Error("PL Partner AML/Bureau bypass is not permitted in production");
+  throw new Error(
+    "PL Partner AML/Bureau bypass is not permitted in production",
+  );
 }
 
 function safeJson(value) {
@@ -155,28 +157,19 @@ async function runBureau() {
   throw new Error("PL Partner live bureau integration is not implemented yet.");
 }
 
-async function loadApplication(
-  applicationId,
-  executor = db,
-) {
-  const [[application]] =
-    await executor.query(
-      `SELECT *
+async function loadApplication(applicationId, executor = db) {
+  const [[application]] = await executor.query(
+    `SELECT *
        FROM pl_partner_applications
        WHERE id = ?
        LIMIT 1`,
-      [applicationId],
-    );
+    [applicationId],
+  );
 
   return application || null;
 }
 
-async function persistBreSnapshot(
-  applicationId,
-  stage,
-  result,
-  executor = db,
-) {
+async function persistBreSnapshot(applicationId, stage, result, executor = db) {
   /*
    * PRE_APPROVAL and FINAL_APPROVAL write to non-overlapping columns.
    * FINAL_APPROVAL must never touch bre_status/bre_decision_stage/bre_credit_limit —
@@ -263,7 +256,11 @@ async function runPreApproval(application) {
 
   const amlRejected = aml.status !== "PROCEED";
 
-  rules.AML_CHECK_RPM = rule(!amlRejected, amlRejected ? "AML_REJECT" : null, aml);
+  rules.AML_CHECK_RPM = rule(
+    !amlRejected,
+    amlRejected ? "AML_REJECT" : null,
+    aml,
+  );
 
   if (amlRejected) {
     addReason(reasons, "AML_REJECT");
@@ -276,12 +273,16 @@ async function runPreApproval(application) {
   const loanAmountResult = validateLoanAmount(application.requested_amount);
   addReason(reasons, loanAmountResult.reason);
 
-  rules.LOAN_AMOUNT_CHECK_RPM = rule(loanAmountResult.passed, loanAmountResult.reason, {
-    requestedLoanAmount: loanAmountResult.amount,
-    minimumLoanAmount: POLICY.MIN_LOAN_AMOUNT,
-    maximumLoanAmount: POLICY.MAX_LOAN_AMOUNT,
-    requiredMultiple: POLICY.LOAN_AMOUNT_MULTIPLE,
-  });
+  rules.LOAN_AMOUNT_CHECK_RPM = rule(
+    loanAmountResult.passed,
+    loanAmountResult.reason,
+    {
+      requestedLoanAmount: loanAmountResult.amount,
+      minimumLoanAmount: POLICY.MIN_LOAN_AMOUNT,
+      maximumLoanAmount: POLICY.MAX_LOAN_AMOUNT,
+      requiredMultiple: POLICY.LOAN_AMOUNT_MULTIPLE,
+    },
+  );
 
   // Always a new customer for now — see the file header comment.
   const newCustomer = true;
@@ -313,7 +314,8 @@ async function runPreApproval(application) {
   // const bureau = await runBureau();
   result.bureau = bureau;
 
-  const bureauScoreMissing = bureau.score === null || bureau.score === undefined;
+  const bureauScoreMissing =
+    bureau.score === null || bureau.score === undefined;
   const bureauScoreBelowMinimum =
     !bureauScoreMissing && Number(bureau.score) < POLICY.MIN_BUREAU_SCORE;
 
@@ -327,7 +329,10 @@ async function runPreApproval(application) {
       : bureauScoreBelowMinimum
         ? "BUREAU_SCORE_BELOW_MINIMUM"
         : null,
-    { bureauScore: bureau.score, minimumRequiredScore: POLICY.MIN_BUREAU_SCORE },
+    {
+      bureauScore: bureau.score,
+      minimumRequiredScore: POLICY.MIN_BUREAU_SCORE,
+    },
   );
 
   if (bureau.hasDualPan) addReason(reasons, "DUAL_PAN_FOUND_IN_BUREAU");
@@ -341,7 +346,8 @@ async function runPreApproval(application) {
   const enquiries30Days = Number(bureau.enquiries30Days || 0);
   const enquiriesFailed = enquiries30Days >= POLICY.ENQUIRY_REJECT_FROM_30_DAYS;
 
-  if (enquiriesFailed) addReason(reasons, "ENQUIRIES_ABOVE_POLICY_LIMIT_LAST_30_DAYS");
+  if (enquiriesFailed)
+    addReason(reasons, "ENQUIRIES_ABOVE_POLICY_LIMIT_LAST_30_DAYS");
 
   rules.ENQUIRIES_30D_CHECK_RPM = rule(
     !enquiriesFailed,
@@ -363,33 +369,42 @@ async function runPreApproval(application) {
     { totalOverdueAmount, maximumAllowedExclusive: POLICY.OVERDUE_REJECT_FROM },
   );
 
-  if (bureau.hasGt30DpdLast3Months) addReason(reasons, "DPD_ABOVE_POLICY_LIMIT_LAST_3_MONTHS");
+  if (bureau.hasGt30DpdLast3Months)
+    addReason(reasons, "DPD_ABOVE_POLICY_LIMIT_LAST_3_MONTHS");
 
   rules.DPD_30_LAST_3M_CHECK_RPM = rule(
     !bureau.hasGt30DpdLast3Months,
-    bureau.hasGt30DpdLast3Months ? "DPD_ABOVE_POLICY_LIMIT_LAST_3_MONTHS" : null,
+    bureau.hasGt30DpdLast3Months
+      ? "DPD_ABOVE_POLICY_LIMIT_LAST_3_MONTHS"
+      : null,
     {
       maximumObservedDpd: bureau.maxDpdLast3Months,
       rejectWhenAbove: POLICY.DPD_REJECT_ABOVE_LAST_3_MONTHS,
     },
   );
 
-  if (bureau.hasGt60DpdLast9Months) addReason(reasons, "DPD_ABOVE_POLICY_LIMIT_LAST_9_MONTHS");
+  if (bureau.hasGt60DpdLast9Months)
+    addReason(reasons, "DPD_ABOVE_POLICY_LIMIT_LAST_9_MONTHS");
 
   rules.DPD_60_LAST_9M_CHECK_RPM = rule(
     !bureau.hasGt60DpdLast9Months,
-    bureau.hasGt60DpdLast9Months ? "DPD_ABOVE_POLICY_LIMIT_LAST_9_MONTHS" : null,
+    bureau.hasGt60DpdLast9Months
+      ? "DPD_ABOVE_POLICY_LIMIT_LAST_9_MONTHS"
+      : null,
     {
       maximumObservedDpd: bureau.maxDpdLast9Months,
       rejectWhenAbove: POLICY.DPD_REJECT_ABOVE_LAST_9_MONTHS,
     },
   );
 
-  if (bureau.hasGt90DpdLast12Months) addReason(reasons, "DPD_ABOVE_POLICY_LIMIT_LAST_12_MONTHS");
+  if (bureau.hasGt90DpdLast12Months)
+    addReason(reasons, "DPD_ABOVE_POLICY_LIMIT_LAST_12_MONTHS");
 
   rules.DPD_90_LAST_12M_CHECK_RPM = rule(
     !bureau.hasGt90DpdLast12Months,
-    bureau.hasGt90DpdLast12Months ? "DPD_ABOVE_POLICY_LIMIT_LAST_12_MONTHS" : null,
+    bureau.hasGt90DpdLast12Months
+      ? "DPD_ABOVE_POLICY_LIMIT_LAST_12_MONTHS"
+      : null,
     {
       maximumObservedDpd: bureau.maxDpdLast12Months,
       rejectWhenAbove: POLICY.DPD_REJECT_ABOVE_LAST_12_MONTHS,
@@ -435,31 +450,20 @@ async function runFinalApproval(application) {
   if (application.bre_status !== "APPROVED") {
     result.decision = "REJECTED";
     result.reason = "PRE_APPROVAL_NOT_COMPLETED";
-    result.reasons = [
-      "PRE_APPROVAL_NOT_COMPLETED",
-    ];
+    result.reasons = ["PRE_APPROVAL_NOT_COMPLETED"];
 
     return result;
   }
 
-  const creditLimit =
-    Number(application.bre_credit_limit);
+  const creditLimit = Number(application.bre_credit_limit);
 
-  const selectedOfferAmount =
-    Number(application.selected_offer_amount);
+  const selectedOfferAmount = Number(application.selected_offer_amount);
 
-  result.creditLimit =
-    Number.isFinite(creditLimit)
-      ? creditLimit
-      : null;
+  result.creditLimit = Number.isFinite(creditLimit) ? creditLimit : null;
 
-  result.age =
-    application.date_of_birth
-      ? calculateAge(
-          application.date_of_birth,
-          new Date(),
-        )
-      : null;
+  result.age = application.date_of_birth
+    ? calculateAge(application.date_of_birth, new Date())
+    : null;
 
   result.newCustomer = true;
 
@@ -470,34 +474,22 @@ async function runFinalApproval(application) {
     selectedOfferAmount <= creditLimit;
 
   if (!selectedOfferValid) {
-    addReason(
-      reasons,
-      "SELECTED_OFFER_EXCEEDS_CREDIT_LIMIT",
-    );
+    addReason(reasons, "SELECTED_OFFER_EXCEEDS_CREDIT_LIMIT");
   }
 
-  rules.SELECTED_OFFER_CHECK_RPM =
-    rule(
-      selectedOfferValid,
+  rules.SELECTED_OFFER_CHECK_RPM = rule(
+    selectedOfferValid,
 
-      selectedOfferValid
-        ? null
-        : "SELECTED_OFFER_EXCEEDS_CREDIT_LIMIT",
+    selectedOfferValid ? null : "SELECTED_OFFER_EXCEEDS_CREDIT_LIMIT",
 
-      {
-        selectedOfferAmount:
-          Number.isFinite(
-            selectedOfferAmount,
-          )
-            ? selectedOfferAmount
-            : null,
+    {
+      selectedOfferAmount: Number.isFinite(selectedOfferAmount)
+        ? selectedOfferAmount
+        : null,
 
-        creditLimit:
-          Number.isFinite(creditLimit)
-            ? creditLimit
-            : null,
-      },
-    );
+      creditLimit: Number.isFinite(creditLimit) ? creditLimit : null,
+    },
+  );
 
   let disbursalBreakup = null;
 
@@ -517,72 +509,49 @@ async function runFinalApproval(application) {
       application.processing_fee === null ||
       application.processing_fee === undefined
         ? null
-        : Number(
-            application.processing_fee,
-          ) / 100;
+        : Number(application.processing_fee) / 100;
 
-    disbursalBreakup =
-      calculateNetDisbursalAmount({
-        creditLimit:
-          selectedOfferAmount,
+    disbursalBreakup = calculateNetDisbursalAmount({
+      creditLimit: selectedOfferAmount,
 
-        processingFeeRate,
-      });
+      processingFeeRate,
+    });
 
     if (!disbursalBreakup.ok) {
       addReason(
         reasons,
-        disbursalBreakup.reason ||
-          "NET_DISBURSAL_AMOUNT_INVALID",
+        disbursalBreakup.reason || "NET_DISBURSAL_AMOUNT_INVALID",
       );
     }
   }
 
-  rules.PROCESSING_FEE_CHECK_RPM =
-    rule(
-      selectedOfferValid &&
-        Boolean(
-          disbursalBreakup?.ok,
-        ),
+  rules.PROCESSING_FEE_CHECK_RPM = rule(
+    selectedOfferValid && Boolean(disbursalBreakup?.ok),
 
-      !selectedOfferValid
+    !selectedOfferValid
+      ? null
+      : disbursalBreakup?.ok
         ? null
-        : disbursalBreakup?.ok
-          ? null
-          : disbursalBreakup
-              ?.reason ||
-            "NET_DISBURSAL_AMOUNT_INVALID",
+        : disbursalBreakup?.reason || "NET_DISBURSAL_AMOUNT_INVALID",
 
-      disbursalBreakup || {
-        applicable:
-          selectedOfferValid,
-      },
-    );
+    disbursalBreakup || {
+      applicable: selectedOfferValid,
+    },
+  );
 
-  result.decision =
-    reasons.length
-      ? "REJECTED"
-      : "APPROVED";
+  result.decision = reasons.length ? "REJECTED" : "APPROVED";
 
-  result.reason =
-    reasons[0] || null;
+  result.reason = reasons[0] || null;
 
-  result.reasons =
-    reasons;
+  result.reasons = reasons;
 
-  result.disbursalBreakup =
-    disbursalBreakup;
+  result.disbursalBreakup = disbursalBreakup;
 
   result.grossApprovedLoanAmount =
-    result.decision === "APPROVED"
-      ? selectedOfferAmount
-      : null;
+    result.decision === "APPROVED" ? selectedOfferAmount : null;
 
   result.approvedLoanAmount =
-    result.decision === "APPROVED"
-      ? disbursalBreakup
-          .netDisbursalAmount
-      : null;
+    result.decision === "APPROVED" ? disbursalBreakup.netDisbursalAmount : null;
 
   return result;
 }
@@ -640,40 +609,31 @@ async function runFinalApproval(application) {
 // }
 
 async function runPlPartnerBre(app, { phase }) {
+  // V1 PRE APPROVAL
+  // Hit Experian + Run PL BRE
 
-    // V1 PRE APPROVAL
-    // Hit Experian + Run PL BRE
+  if (phase === "PRE_APPROVAL") {
+    const result = await runPLBRE(app.lan);
 
-    if (phase === "PRE_APPROVAL") {
+    return {
+      decision: result.status,
+      reason: result.reason,
+      creditLimit: app.requested_amount,
+      details: result,
+    };
+  }
 
-        const result = await runPLBRE(
-            app.lan
-        );
+  // V2 FINAL APPROVAL
+  // Do not hit Experian again
 
-        return {
-            decision: result.status,
-            reason: result.reason,
-            creditLimit: app.requested_amount,
-            details: result
-        };
-    }
-
-
-    // V2 FINAL APPROVAL
-    // Do not hit Experian again
-
-    if (phase === "FINAL_APPROVAL") {
-
-        return {
-            decision: app.bre_final_status,
-            reason: app.bre_final_reason,
-            creditLimit: app.bre_credit_limit,
-            grossApprovedLoanAmount:
-                app.bre_gross_approved_amount
-        };
-
-    }
-
+  if (phase === "FINAL_APPROVAL") {
+    return {
+      decision: app.bre_final_status,
+      reason: app.bre_final_reason,
+      creditLimit: app.bre_credit_limit,
+      grossApprovedLoanAmount: app.bre_gross_approved_amount,
+    };
+  }
 }
 
 module.exports = {
